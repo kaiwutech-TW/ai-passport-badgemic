@@ -2,7 +2,7 @@
 updated: 2026-11-13
 updated_by: Claude Code (claude-opus-5-5)
 latest_record: records/261113-scope-and-toolchain.md
-health: yellow  # Mac App 46 測試綠;韌體開發中(子代理,未 commit);無真機驗證
+health: yellow  # 端到端已在真機打通;仍有已知風險未修(編碼任務堆疊只剩 472 B)
 ---
 <!-- flightwake STATE — 永遠短、永遠新。新 session 的第一站。 -->
 <!-- 規則:只寫「現在」與「下一步」;歷史去 records/,決策去 DECISIONS.md。 -->
@@ -16,17 +16,18 @@ health: yellow  # Mac App 46 測試綠;韌體開發中(子代理,未 commit);無
 
 # 進行中(未完成勿刪)
 
-- [x] 協定規格(b7dcd96、d713f8c:錄音後「已送出」0.8 s 回名牌;顯示時間/亮度可由 Mac 設定)
-- [x] Mac App `companion/macos/`(5ee748f):`./scripts/test.sh` 46 測試通過;`scripts/build-app.sh` 產 `dist/BadgeMic.app`,尚未啟動過
-- [ ] 韌體 `main/`、`partitions.csv`、`sdkconfig.defaults`:Sonnet 子代理開發中,工作樹有未 commit 變更——不要動、等它回報後由主線審查再 commit;
-      已追加要求「PTT 期間每個 60 ms 幀都要送(含 DTX),否則 Mac 2 s 看門狗會放開 Fn」
-- [ ] 未驗證:模擬 Fn 能否觸發學舌鳥/豆包;BlackHole 尚未安裝(需使用者輸密碼),目前只有 SayAll 的 MiRemoteV 2ch
+- [x] 2026-11-13 真機端到端打通(韌體 fda4d3b):按住 OK → BLE Opus → BadgeMic → MiRemoteV 2ch 虛擬麥克風 + 模擬 Fn → 學舌鳥打出字(使用者確認)。
+      裝置日誌:第 1 輪 109 幀、dropped=0、tx_drops=0;藍牙啟動後 heap 68 KB、首次 PTT 65 KB
+- [ ] 韌體風險:編碼任務 stack_free=472 B(要加大)、enc_max=93 ms > 60 ms 幀長;熄屏後 USB 序列埠消失(疑為降頻,待確認)
+- [ ] Mac App:「自動」輸出裝置只找 BlackHole,找不到就送喇叭 → 應認得 MiRemoteV 等 loopback 並提醒;ad-hoc 簽章每次重編掉輔助使用授權(TRAPS)→ 待使用者同意建固定自簽憑證
+- [ ] 未測:名牌頁上傳、UP/DOWN 動作、顯示設定、always_on、深睡喚醒;豆包(使用者要在 MacBook Air 測)
+- [ ] 使用者要求:用 K-Browser 開 Chrome 的 Google Flow 生成 App 圖示(吊牌 + 麥克風)
 
 # 下一步入口
 
-1. 韌體回報後:審查 → `./tools/validate.sh` 全綠 → commit → 寫 record
-2. 刷機前必問使用者(裝置在 `/dev/cu.usbmodem103101`);刷前提醒存好機背 QR 連結、會蓋掉小程序身份卡
-3. 使用者自行處理 NFC:用 NFC Tools 先讀出原內容存證,再寫 LINE 加好友網址,勿鎖定標籤
+1. 修韌體堆疊/編碼時間 → validate → 只寫 app 區(0x10000)保留配對;刷前告知使用者
+2. 刷機備份在 `~/esp/passport-backup/factory-full-20261113.bin`(含裝置序號與金鑰,勿 commit/上傳)
+3. 轉到 MacBook Air 前:App 要右鍵打開放行、裝虛擬麥克風、重新授權;名牌需先在這台「忘記裝置」
 
 # 常備事實(這個 repo 的 3-5 條保命知識)
 

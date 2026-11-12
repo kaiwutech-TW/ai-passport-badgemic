@@ -8,6 +8,24 @@
 # 坑 Registry
 
 ---
+name: adhoc-sign-resets-accessibility
+type: gotcha
+status: active
+confidence: probable  # 1 次實機觀察 + codesign 顯示 DR 為 cdhash;未做「固定憑證後不再失效」的對照
+tags: [macos, tcc, codesign, companion]
+discovered: 2026-11-13
+paths: ["companion/macos/scripts/build-app.sh"]
+commands: ["./scripts/build-app.sh", "companion/macos/scripts/build-app.sh"]
+retire_when: "build-app.sh 改用固定的自簽或 Developer ID 憑證簽名時"
+---
+
+**症狀**:系統設定 → 隱私權與安全性 → 輔助使用裡 BadgeMic 開關是開的,但 App 重開後仍顯示「輔助使用:未授權」,模擬的 Fn 完全無效(macOS 靜默丟棄事件)。
+**根因**:`build-app.sh` 用 ad-hoc 簽章,`codesign -d -r-` 顯示 designated requirement 是 `cdhash H"…"`;每次重編 cdhash 都變,TCC 的舊授權綁舊 cdhash,新版不吃。
+**繞法**:每次重編後 `tccutil reset Accessibility tw.kaiwu.badgemic`(只影響本 App),重開 App → 請求授權 → 系統設定打開 → 再重開 App。
+長期解:用固定憑證簽名,讓 DR 不隨重編改變。
+**佐證**:2026-11-13 本 session,`fda4d3b` 後重編 App 出現此症狀;codesign 輸出 `Signature=adhoc`、`designated => cdhash H"c8f8…"`。
+
+---
 name: idf-export-wrong-python
 type: gotcha
 status: active
