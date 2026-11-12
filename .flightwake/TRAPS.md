@@ -1,0 +1,51 @@
+<!-- flightwake TRAPS — 坑 registry。非顯而易見、會再咬人的事實。 -->
+<!-- 條目採 OKF 式慣例:frontmatter 區塊 + 內文;可用 [[名稱]] 互連。新的加最上面。 -->
+<!-- 時效:條目過時(功能合併/重構後不再成立)不刪 — status 改 superseded 並指向取代者;讀的人只信 active。 -->
+<!-- 證據強度:confidence 標的是「根因」的把握度,不是症狀。**不對稱門檻**——拿這條論證
+     「這樣會壞」probable 就夠(錯了只是多做防護);論證「這樣是安全的」必須 confirmed
+     (錯了直接打到 prod 和使用者)。 -->
+
+# 坑 Registry
+
+---
+name: erase-flash-wipes-device-identity
+type: constraint
+status: active
+confidence: probable  # 兩份一手文件一致,未在真機實驗
+tags: [flash, esptool, recovery, factory-firmware]
+discovered: 2026-11-11
+commands: ["idf.py erase-flash", "idf.py erase_flash", "esptool.py erase_flash", "esptool erase_flash", "esptool.py write_flash"]
+retire_when: "在本機真機上驗證過 erase/刷機後 cardid 與 Recovery 的實際行為"
+---
+
+**症狀**:尚未踩到(預防性登記)。上游文件警告:執行 `erase-flash` 會清掉設備身份與永久 Recovery。
+**根因**:出廠韌體在 flash 固定位址放了 `cardid` 設備身份(`0x356000`)與永久 Recovery(`0x700000`,開機按住上鍵 5 秒進入),
+整片 erase 會一併抹掉;社群韌體刷入也會覆蓋原本內容,出廠「身份卡」要先恢復預設韌體才能再用微信小程序同步。
+**繞法**:不要 `erase-flash`;只刷 `build/FoloToy-AI-Passport-full.bin` 合併鏡像;已有設備身份的機器優先走小程序 Recovery 安裝。
+刷前若想保留出廠韌體,先用 `esptool.py read_flash 0 0x800000 backup.bin` 整片備份(此步本身未驗證)。
+官方恢復路徑:手機掃機背 QR → 裝置專屬頁(連結含 SN 與 KEY,屬機密,不可 commit/分享)→ 桌面 Chrome/Edge + 資料線
+→「恢復默認固件」→「執行完整恢復」→ 小程序重新同步(https://ai-passport.folotoy.cn/guides/restore-factory-firmware/)。
+erase 掉 cardid 後這條路還通不通,文件沒寫、未驗證。
+**佐證**:FoloToy/ai-passport `feature/senior-safety-card` 分支 README「構建與安裝」「兼容性」節;
+官網 https://ai-passport.folotoy.cn/guides/getting-started/(「如果已安裝過其他玩法，請先恢復默認固件」)。
+
+---
+name: {{kebab-case-slug}}
+type: trap          # trap | gotcha | constraint
+status: active      # active | superseded(過時不刪,改此欄並在內文指向 [[取代條目]] 或 record)
+confidence: suspected  # confirmed(受控實驗坐實:改變因 → 症狀跟著出現/消失,至少兩次;
+                       #           非因果事實則為「窮盡查證 + 指得出一手來源」)
+                       # probable(多次觀察一致,但沒做對照組)
+                       # suspected(單次觀察,或「當下最像的解釋」)
+                       # 未標此欄 = unknown(舊條目),讀的人比照 suspected 對待
+tags: [{{標籤}}]
+discovered: {{YYYY-MM-DD}}
+paths: []          # 選填:這個坑相關的檔案,repo 相對路徑的 glob — 例如 ["src/db/**", "*.sql"]
+commands: []       # 選填:這個坑相關的指令前綴 — 例如 ["npm run migrate"]。留空即可;
+                   #   裝了 Claude Code mod 時,碰到相符的檔案或指令會把這條提示給 agent(每 session 一次)
+---
+
+**症狀**:{{看到什麼(錯誤訊息/怪行為)——這欄永遠是事實,錯誤訊息照貼}}
+**根因**:{{一句話。confidence 標的就是這一欄的把握度}}
+**解法/繞法**:{{怎麼處理。非 confirmed 時只寫「繞法」,不寫「解法」,也不得當行為準則}}
+**佐證**:{{commit/record 連結;標 confirmed 必須指得出受控實驗}}

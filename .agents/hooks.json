@@ -1,0 +1,11 @@
+{
+  "flightwake-state-check": {
+    "Stop": [
+      {
+        "type": "command",
+        "command": "node \"$(git rev-parse --show-toplevel)/.flightwake/hooks/state-check.mjs\"",
+        "timeout": 30
+      }
+    ]
+  }
+}
