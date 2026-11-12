@@ -58,7 +58,8 @@ Shinku-Chen 以 MIT 许可发布的 Pocket Intercom 协议（`Shinku-Chen/ai-pas
 {"ev":"hello","proto":1,"fw":"0.1.0","model":"Passport-3A2B",
  "caps":["opus","put","display"],
  "page":{"w":240,"h":320,"fmt":"rgb565le","count":2},
- "battery":87,"display":"auto"}
+ "battery":87,
+ "display":{"mode":"auto","dim_s":30,"off_s":120,"sleep_min":30,"brightness":80,"dim_brightness":20}}
 ```
 
 Mac 看到设备 hello 后以 `CONTROL` 发送：
@@ -85,6 +86,9 @@ Mac 看到设备 hello 后以 `CONTROL` 发送：
 5. 若链路断开或按住超过 **120 s**，设备以
    `{"ev":"ptt_end","id":N,"frames":F,"dropped":D,"reason":"timeout"|"link"}` 结束本轮。
 
+`ptt_end` 之后设备显示「已送出」确认 800 ms，再回到本轮开始前显示的名牌页。若 OK 按满
+300 ms 时链路未就绪，设备显示「未连接」1.5 s，不发送任何内容，然后回到名牌。
+
 `id` 每轮递增。Mac 必须在 `ptt_end`、断开连接、以及本轮中 2 s 内没有任何音频或事件到达时
 松开听写快捷键，确保按键永远不会卡在按下状态。
 
@@ -104,12 +108,24 @@ Mac 可在快捷键已按住且虚拟麦克风开始接收后回复 `{"cmd":"ptt
 ## 显示模式
 
 ```json
-{"cmd":"set_display","mode":"auto"}
+{"cmd":"set_display","mode":"auto","dim_s":30,"off_s":120,"sleep_min":30,
+ "brightness":80,"dim_brightness":20}
 ```
 
-`auto`：闲置 30 s 调暗、120 s 熄屏（BLE 链路保持，OK 立即可用）、闲置 30 分钟深睡。
-`always_on`：屏幕永不熄灭；电量低于 15 % 时设备自行退出 `always_on`。设备持久保存模式，
-变化时上报 `{"ev":"display","mode":"always_on"}`。
+除 `cmd` 外所有字段可选；省略的字段保持当前值。
+
+| 字段 | 默认 | 范围 | 含义 |
+| --- | --- | --- | --- |
+| `mode` | `auto` | `auto`、`always_on` | `always_on` 永不调暗或熄屏 |
+| `dim_s` | 30 | 5–600 | 闲置多少秒后调暗 |
+| `off_s` | 120 | `dim_s`–3600 | 闲置多少秒后熄屏；BLE 链路保持，OK 立即可用 |
+| `sleep_min` | 30 | 0（永不）或 5–240 | 闲置多少分钟后深睡（链路断开；按键会重启） |
+| `brightness` | 80 | 10–100 | 正常背光百分比 |
+| `dim_brightness` | 20 | 5–`brightness` | 调暗时背光百分比 |
+
+超出范围的值会被夹到范围内。设备持久保存设置，在 `hello` 中以同名字段的
+`"display":{...}` 附带，并在每次变化时上报 `{"ev":"display", ...同样字段...}`。`always_on`
+模式下电量低于 15 % 时设备自行退出该模式并上报。
 
 ## 名牌页面上传
 

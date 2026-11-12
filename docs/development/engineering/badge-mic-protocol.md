@@ -64,7 +64,8 @@ Device, as an `EVENT` after subscription:
 {"ev":"hello","proto":1,"fw":"0.1.0","model":"Passport-3A2B",
  "caps":["opus","put","display"],
  "page":{"w":240,"h":320,"fmt":"rgb565le","count":2},
- "battery":87,"display":"auto"}
+ "battery":87,
+ "display":{"mode":"auto","dim_s":30,"off_s":120,"sleep_min":30,"brightness":80,"dim_brightness":20}}
 ```
 
 Mac, as a `CONTROL` once it has seen the device hello:
@@ -94,6 +95,11 @@ Sequence:
 5. If the link drops or the hold exceeds **120 s**, the device ends the turn with
    `{"ev":"ptt_end","id":N,"frames":F,"dropped":D,"reason":"timeout"|"link"}`.
 
+After `ptt_end` the device shows a "sent" confirmation for 800 ms, then returns to
+the badge page that was showing before the turn. If OK reaches 300 ms while the
+link is not ready, the device shows "not connected" for 1.5 s, sends nothing, and
+returns to the badge.
+
 `id` increments per turn. The Mac must release the dictation hotkey on
 `ptt_end`, on disconnect, and when no audio or event has arrived for 2 s during a
 turn, so a key can never stay stuck down.
@@ -116,14 +122,25 @@ the screen is off and wakes it.
 ## Display mode
 
 ```json
-{"cmd":"set_display","mode":"auto"}
+{"cmd":"set_display","mode":"auto","dim_s":30,"off_s":120,"sleep_min":30,
+ "brightness":80,"dim_brightness":20}
 ```
 
-`auto`: dim after 30 s idle, screen off after 120 s (the BLE link stays up, so OK
-works instantly), deep sleep after 30 min idle. `always_on`: the screen never
-turns off; the device leaves `always_on` by itself when the battery drops below
-15 %. The device persists the mode and reports changes as
-`{"ev":"display","mode":"always_on"}`.
+Every field except `cmd` is optional; omitted fields keep their current value.
+
+| Field | Default | Range | Meaning |
+| --- | --- | --- | --- |
+| `mode` | `auto` | `auto`, `always_on` | `always_on` never dims or turns the screen off |
+| `dim_s` | 30 | 5–600 | idle seconds before dimming |
+| `off_s` | 120 | `dim_s`–3600 | idle seconds before the screen turns off; the BLE link stays up, so OK works instantly |
+| `sleep_min` | 30 | 0 (never) or 5–240 | idle minutes before deep sleep (link drops; a key press reboots) |
+| `brightness` | 80 | 10–100 | normal backlight percent |
+| `dim_brightness` | 20 | 5–`brightness` | dimmed backlight percent |
+
+Out-of-range values are clamped. The device persists the settings, includes them
+in `hello` as `"display":{...}` with the same field names, and reports every change
+as `{"ev":"display", ...same fields...}`. In `always_on` the device leaves that
+mode by itself when the battery drops below 15 % and reports the change.
 
 ## Badge page upload
 
