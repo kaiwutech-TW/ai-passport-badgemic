@@ -24,6 +24,8 @@ CONFIG_LV_COLOR_DEPTH_16=y
 CONFIG_LV_DEF_REFR_PERIOD=20
 CONFIG_LV_FONT_MONTSERRAT_14=y
 CONFIG_LV_FONT_MONTSERRAT_20=y
+CONFIG_LV_FONT_MONTSERRAT_32=y
+CONFIG_LV_FONT_MONTSERRAT_48=y
 # LVGL 分配器：默认改用系统堆的标准 malloc/realloc/free。
 # 内置 24KB 静态池在复杂圆角/蒙版绘制时会耗尽，lv_malloc 返回 NULL 后 LVGL 断言死循环，
 # 饿死 IDLE 触发 TWDT 冻屏（真机已复现：圆角蒙版表分配失败）。系统堆约 130KB 可用，
@@ -43,4 +45,16 @@ CONFIG_BT_NIMBLE_ROLE_BROADCASTER=y
 CONFIG_BT_NIMBLE_ROLE_OBSERVER=n
 CONFIG_BT_NIMBLE_MAX_CONNECTIONS=1
 CONFIG_BT_NIMBLE_HOST_BASED_PRIVACY=n
-CONFIG_BT_NIMBLE_NVS_PERSIST=n
+# Bonding must survive reboot, otherwise every reconnect asks for the passkey again.
+CONFIG_BT_NIMBLE_NVS_PERSIST=y
+# ble_store_util_* (delete/list bonded peers) needs the util API.
+CONFIG_BT_NIMBLE_UTIL_API=y
+# LE Secure Connections only: the MITM passkey must not fall back to legacy pairing.
+CONFIG_BT_NIMBLE_SM_SC=y
+CONFIG_BT_NIMBLE_SM_LEGACY=n
+
+# Power: DFS only (160 -> 40 MHz while the screen is off). Automatic light sleep is
+# NOT enabled in code: it made the BLE link time out on this board (see
+# docs/reference/shinku-chen/ble-active-idle-power.md). Modem sleep keeps BLE alive.
+CONFIG_PM_ENABLE=y
+CONFIG_BT_CTRL_MODEM_SLEEP=y

@@ -43,8 +43,11 @@ messages have been exchanged.
 [0] 0xA5  [1] 0x5A  [2] TYPE  [3] FLAGS  [4..5] LEN (big endian)  [6..] payload
 ```
 
-Receivers scan byte by byte for the magic plus a known type plus a legal length,
-and discard a partial frame when a new valid header appears inside it.
+Receivers scan byte by byte for the magic plus a known type plus a legal length.
+For JSON frames (`CONTROL`, `EVENT`), a partial frame is discarded when a new valid
+header appears inside it. Binary payloads (`PUT_DATA` pixels, `AUDIO_OPUS`) may
+legally contain header-like bytes, so the device never applies that rule to
+`PUT_DATA`; a receiver applying it to audio may lose at most that one frame.
 
 | Type | Name | Direction | Payload | Max payload |
 | --- | --- | --- | --- | --- |
@@ -74,7 +77,10 @@ Mac, as a `CONTROL` once it has seen the device hello:
 {"cmd":"hello","proto":1,"app":"BadgeMic","ver":"0.1.0"}
 ```
 
-`battery` is a percentage, or `-1` when unavailable. A peer that sees a different
+The device sends no `ptt_start`, audio, or `key` events until it has received a Mac
+`hello` with a matching `proto`; a mismatch is answered with
+`{"ev":"error","cmd":"hello","err":"proto"}`. `battery` is a percentage, or `-1`
+when unavailable. A peer that sees a different
 `proto` must show a visible version-mismatch message and must not stream audio.
 
 ## Push-to-talk
@@ -116,7 +122,7 @@ indicator from "capturing" to "live".
 
 `key` is `up` or `down`; `gesture` is `click` or `long` (held ≥ 600 ms, reported
 on release). OK never produces a `key` event. When the screen is off, the first
-UP or DOWN press only wakes the screen and is not reported. OK hold works while
+UP or DOWN press, and an OK tap, only wake the screen and are not reported. OK hold works while
 the screen is off and wakes it.
 
 ## Display mode
@@ -158,7 +164,7 @@ through the pages that hold a valid image.
 5. Device verifies size and CRC, makes the slot active only on success, redraws if
    that page is visible, and answers `{"ev":"put_done","page":0,"ok":true}`.
 
-`{"cmd":"clear_page","page":1}` removes a page. A failed or interrupted upload
+`{"cmd":"clear_page","page":1}` marks a page empty; it has no reply. A failed or interrupted upload
 never replaces the previously active image.
 
 ## Status
