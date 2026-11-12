@@ -18,3 +18,8 @@ managed_components/
 /.claude/skills/passport-build
 /.claude/skills/passport-device-test
 /.claude/skills/passport-debug
+
+# macOS companion app build outputs.
+companion/macos/.build/
+companion/macos/dist/
+companion/macos/.swiftpm/
