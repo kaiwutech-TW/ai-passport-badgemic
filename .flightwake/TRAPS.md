@@ -8,6 +8,25 @@
 # 坑 Registry
 
 ---
+name: idf-export-wrong-python
+type: gotcha
+status: active
+confidence: confirmed  # 同一 shell 內改 PATH 前後一敗一成(2026-11-13)
+tags: [esp-idf, python, toolchain, macos]
+discovered: 2026-11-13
+commands: [". ~/esp/esp-idf-v5.5.3/export.sh", "source ~/esp/esp-idf-v5.5.3/export.sh"]
+retire_when: "改用與 install 時相同的系統 python 重裝 IDF,或 repo 有包好 PATH 的啟用腳本時"
+---
+
+**症狀**:`. ~/esp/esp-idf-v5.5.3/export.sh` 失敗:
+`ERROR: ESP-IDF Python virtual environment "/Users/kaiwu/.espressif/python_env/idf5.5_py3.9_env/bin/python" not found.`,之後 `idf.py: command not found`。
+**根因**:export.sh 依 PATH 上第一個 `python3` 的版本去找 `idf5.5_py<版本>_env`;本機 install.sh 是用 brew `python@3.12` 跑的(venv 為 `idf5.5_py3.12_env`),
+但系統 PATH 預設的 `python3` 是 `/usr/bin/python3`(3.9.6)。
+**解法**:每次啟用前先把 3.12 放到 PATH 前面:
+`export PATH="$(brew --prefix python@3.12)/libexec/bin:$PATH" && . ~/esp/esp-idf-v5.5.3/export.sh`,然後 `idf.py --version` 必須印出 `ESP-IDF v5.5.3`。
+**佐證**:2026-11-13 本 session:未改 PATH → 上述錯誤;改 PATH 後同一指令 → `ESP-IDF v5.5.3`、`Python 3.12.16`。
+
+---
 name: erase-flash-wipes-device-identity
 type: constraint
 status: active

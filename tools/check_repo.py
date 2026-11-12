@@ -34,7 +34,20 @@ ROOT_MARKDOWN_ALLOWLIST = {
 ROOT_README_RE = re.compile(r"README(?:\.[A-Za-z0-9_-]+)?\.md\Z")
 # Register only concrete, vendored component directories, e.g. "components/foo".
 # These exemptions never change the input to sensitive-content/conflict checks.
-VENDORED_DOC_ROOTS: tuple[str, ...] = ()
+# Fork-specific: flightwake work-log tooling (zh-TW, not product documentation).
+VENDORED_DOC_ROOTS: tuple[str, ...] = (
+    ".flightwake",
+    ".claude",
+    ".agents/skills/fw-coldstart",
+    ".agents/skills/fw-handoff",
+    ".agents/skills/fw-record",
+    ".agents/skills/fw-trap",
+)
+# Fork-specific: the generated flightwake block inside root AGENTS.md is exempt
+# from the English-prose rule; everything outside the markers is still checked.
+FLIGHTWAKE_BLOCK_RE = re.compile(
+    r"<!-- flightwake:begin[^>]*-->.*?<!-- flightwake:end -->", re.DOTALL
+)
 
 
 def vendored_document_roots(errors: list[str]) -> tuple[Path, ...]:
@@ -254,6 +267,10 @@ def check_document_languages(
             )
 
         english_prose = text.replace("简体中文", "")
+        if path == ROOT / "AGENTS.md":
+            english_prose = FLIGHTWAKE_BLOCK_RE.sub(
+                lambda m: "\n" * m.group(0).count("\n"), english_prose
+            )
         match = CJK_RE.search(english_prose)
         if match:
             line = english_prose.count("\n", 0, match.start()) + 1
