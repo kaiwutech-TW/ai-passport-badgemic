@@ -11,3 +11,10 @@ managed_components/
 /.agents/skills/passport-build
 /.agents/skills/passport-device-test
 /.agents/skills/passport-debug
+
+# Repository-local skill links for Claude Code (same sources as /.agents/skills links above).
+/.claude/skills/passport-develop
+/.claude/skills/passport-setup
+/.claude/skills/passport-build
+/.claude/skills/passport-device-test
+/.claude/skills/passport-debug
