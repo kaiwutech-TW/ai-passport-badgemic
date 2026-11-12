@@ -74,6 +74,17 @@ final class AppModel: ObservableObject {
     private var signalSources: [DispatchSourceSignal] = []
     private var pollTimer: Timer?
 
+    /// Requests the device hello with get_hello until it arrives (1 s, then every 1.5 s, 8 tries).
+    private func scheduleHelloRequest(attempt: Int) {
+        guard attempt <= 8 else { addLog("裝置沒有回 hello,請重新連線"); return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + (attempt == 1 ? 1.0 : 1.5)) { [weak self] in
+            guard let self, self.hello == nil, self.link == .subscribed else { return }
+            self.addLog("未收到 hello,向裝置索取(第 \(attempt) 次)")
+            self.send(.getHello())
+            self.scheduleHelloRequest(attempt: attempt + 1)
+        }
+    }
+
     private var uploadEvents: [DeviceEvent] = []
     private var uploadWaiter: CheckedContinuation<DeviceEvent, Error>?
     private var uploading = false
@@ -147,9 +158,13 @@ final class AppModel: ObservableObject {
         transport.onConnected = { [weak self] name in
             guard let self else { return }
             self.deviceName = name
-            self.ready = false
-            self.protoMismatch = false
-            self.addLog("已訂閱通知,等待 hello")
+            // The device sends its hello as soon as notifications are enabled, so that hello can
+            // arrive before this callback. Never clear readiness here (disconnect already does);
+            // only ask again if it has not arrived yet.
+            if self.hello == nil {
+                self.addLog("已訂閱通知,等待 hello")
+                self.scheduleHelloRequest(attempt: 1)
+            }
         }
         transport.onDisconnected = { [weak self] in
             guard let self else { return }

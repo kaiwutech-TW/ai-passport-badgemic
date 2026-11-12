@@ -393,6 +393,9 @@ static void handle_control(const uint8_t *payload, size_t len)
             s_mac_hello_ok = true;
         }
         break;
+    case BM_CMD_GET_HELLO:
+        send_hello();   // the Mac missed (or raced) the hello sent at subscription
+        break;
     case BM_CMD_PTT_ACK:
         if (bm_ptt_ack(&s_ptt, c.id)) {
             set_banner(BM_BANNER_LIVE);

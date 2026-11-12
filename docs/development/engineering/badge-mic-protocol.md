@@ -77,7 +77,10 @@ Mac, as a `CONTROL` once it has seen the device hello:
 {"cmd":"hello","proto":1,"app":"BadgeMic","ver":"0.1.0"}
 ```
 
-The device sends no `ptt_start`, audio, or `key` events until it has received a Mac
+The device hello can arrive before the Mac's own subscription callback, or be lost.
+If the Mac has no device hello 1 s after subscribing, it sends
+`{"cmd":"get_hello"}` (retrying every 1.5 s, at most 8 times) and the device
+answers with its hello. The device sends no `ptt_start`, audio, or `key` events until it has received a Mac
 `hello` with a matching `proto`; a mismatch is answered with
 `{"ev":"error","cmd":"hello","err":"proto"}`. `battery` is a percentage, or `-1`
 when unavailable. A peer that sees a different

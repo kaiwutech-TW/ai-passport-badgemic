@@ -69,7 +69,8 @@ Mac 看到设备 hello 后以 `CONTROL` 发送：
 {"cmd":"hello","proto":1,"app":"BadgeMic","ver":"0.1.0"}
 ```
 
-设备在收到 `proto` 相符的 Mac `hello` 之前，不发送 `ptt_start`、音频或 `key` 事件；不符时回复
+设备 hello 可能早于 Mac 自己的订阅回调到达，也可能丢失。Mac 订阅后 1 s 仍未收到设备 hello 时，
+发送 `{"cmd":"get_hello"}`（每 1.5 s 重试，最多 8 次），设备以自己的 hello 回复。设备在收到 `proto` 相符的 Mac `hello` 之前，不发送 `ptt_start`、音频或 `key` 事件；不符时回复
 `{"ev":"error","cmd":"hello","err":"proto"}`。`battery` 为百分比，不可用时为 `-1`。看到不同 `proto` 的一方必须显示可见的版本不符提示，
 且不得传输音频。
 

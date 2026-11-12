@@ -139,6 +139,15 @@ static void test_ptt_flow(void)
     // link not ready while merely pressed does not end anything early
     bm_ptt_ok_down(&t);
     assert(bm_ptt_tick(&t, false, 300000).act == BM_PTT_ACT_NONE && t.state == BM_PTT_PRESSED);
+    bm_ptt_ok_up(&t);
+
+    // regression (on-device 2026-11-13): periodic() samples "now" once, then a hold sets
+    // start_ms from a later clock read; a tick with that earlier "now" must not time out.
+    bm_ptt_ok_down(&t);
+    bm_ptt_ok_hold(&t, true, 400005);
+    assert(bm_ptt_tick(&t, true, 400000).act == BM_PTT_ACT_NONE && t.state == BM_PTT_TALKING);
+    assert(bm_ptt_tick(&t, true, 400005 + 3000).act == BM_PTT_ACT_NONE);
+    assert(bm_ptt_ok_up(&t).act == BM_PTT_ACT_END_TURN);
 }
 
 static void test_banner(void)

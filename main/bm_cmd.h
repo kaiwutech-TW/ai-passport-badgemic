@@ -10,6 +10,7 @@
 typedef enum {
     BM_CMD_UNKNOWN = 0,
     BM_CMD_HELLO,
+    BM_CMD_GET_HELLO,
     BM_CMD_PTT_ACK,
     BM_CMD_SET_DISPLAY,
     BM_CMD_PUT_BEGIN,

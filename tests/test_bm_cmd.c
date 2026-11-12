@@ -16,6 +16,7 @@ static void test_commands(void)
     assert(parse("{\"cmd\":\"hello\",\"proto\":1,\"app\":\"BadgeMic\",\"ver\":\"0.1.0\"}", &c));
     assert(c.kind == BM_CMD_HELLO && !c.bad_args && c.proto == 1);
     assert(parse("{\"cmd\":\"hello\"}", &c) && c.kind == BM_CMD_HELLO && c.bad_args);
+    assert(parse("{\"cmd\":\"get_hello\"}", &c) && c.kind == BM_CMD_GET_HELLO && !c.bad_args);
 
     assert(parse("{ \"cmd\" : \"ptt_ack\" , \"id\" : 7 }", &c));
     assert(c.kind == BM_CMD_PTT_ACK && c.id == 7 && !c.bad_args);

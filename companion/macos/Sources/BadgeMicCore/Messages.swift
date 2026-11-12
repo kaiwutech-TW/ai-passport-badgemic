@@ -141,6 +141,8 @@ public struct ControlCommand: Codable, Equatable, Sendable {
     public static func hello(app: String = "BadgeMic", version: String) -> ControlCommand {
         var c = ControlCommand(cmd: "hello"); c.proto = supportedProtocolVersion; c.app = app; c.ver = version; return c
     }
+    /// Asks the device to resend its hello (sent when the subscription-time hello was missed).
+    public static func getHello() -> ControlCommand { ControlCommand(cmd: "get_hello") }
     public static func pttAck(id: Int) -> ControlCommand { var c = ControlCommand(cmd: "ptt_ack"); c.id = id; return c }
     public static func putBegin(page: Int, size: Int, crc32: UInt32) -> ControlCommand {
         var c = ControlCommand(cmd: "put_begin"); c.page = page; c.size = size; c.crc32 = crc32; return c

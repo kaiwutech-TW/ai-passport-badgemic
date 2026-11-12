@@ -106,6 +106,7 @@ import Testing
         #expect(try s(.putBegin(page: 0, size: 153_600, crc32: 3_735_928_559)) == #"{"cmd":"put_begin","crc32":3735928559,"page":0,"size":153600}"#)
         #expect(try s(.putEnd(page: 0)) == #"{"cmd":"put_end","page":0}"#)
         #expect(try s(.clearPage(1)) == #"{"cmd":"clear_page","page":1}"#)
+        #expect(try s(.getHello()) == #"{"cmd":"get_hello"}"#)
         #expect(try s(.setDisplay(DisplaySettings(mode: .alwaysOn))) == #"{"cmd":"set_display","mode":"always_on"}"#)
         let f = try ControlCommand.pttAck(id: 1).frame()
         #expect(f[0] == 0xA5 && f[2] == 0x03)

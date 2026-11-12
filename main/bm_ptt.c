@@ -75,7 +75,9 @@ bm_ptt_out_t bm_ptt_tick(bm_ptt_t *t, bool link_ready, uint32_t now_ms)
         t->state = BM_PTT_IDLE;
         return out(BM_PTT_ACT_END_TURN, BM_PTT_REASON_LINK);
     }
-    if (now_ms - t->start_ms >= BM_PTT_MAX_MS) {
+    // Signed difference: callers may pass a "now" sampled a few ms before start_ms was
+    // set (periodic() samples once, then a hold sets start_ms from a fresh clock read).
+    if ((int32_t)(now_ms - t->start_ms) >= (int32_t)BM_PTT_MAX_MS) {
         t->state = BM_PTT_IDLE;
         return out(BM_PTT_ACT_END_TURN, BM_PTT_REASON_TIMEOUT);
     }

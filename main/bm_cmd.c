@@ -174,6 +174,8 @@ bool bm_cmd_parse(const uint8_t *json, size_t len, bm_cmd_t *out)
     if (!strcmp(cmd.str, "hello")) {
         out->kind = BM_CMD_HELLO;
         if (int_in(&proto, 0, 1 << 30, &t)) out->proto = t; else out->bad_args = true;
+    } else if (!strcmp(cmd.str, "get_hello")) {
+        out->kind = BM_CMD_GET_HELLO;
     } else if (!strcmp(cmd.str, "ptt_ack")) {
         out->kind = BM_CMD_PTT_ACK;
         if (int_in(&id, 0, 0xFFFFFFFFll, &t)) out->id = (uint32_t)t; else out->bad_args = true;
