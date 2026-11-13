@@ -24,3 +24,15 @@ companion/macos/.build/
 companion/macos/dist/
 companion/macos/.swiftpm/
 .DS_Store
+
+# Secrets and device-identity material must never be committed
+*.p12
+*.pfx
+*.p8
+*.key
+*.pem
+*.cer
+*.certSigningRequest
+*.mobileprovision
+*backup*.bin
+factory-full*.bin
