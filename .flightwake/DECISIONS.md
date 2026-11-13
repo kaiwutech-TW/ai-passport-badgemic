@@ -16,4 +16,7 @@
 | 2026-11-13 | [superseded→2026-11-13 辨識工具不綁定] 語音轉文字交給使用者自選的辨識工具:Mac App 把 BLE 收到的聲音寫進虛擬麥克風(先用 BlackHole 2ch)並模擬該工具的快捷鍵;首個目標學舌鳥(Parroting)= 按住 Fn 收音、放開結束 | 使用者要像 SayAll 一樣可換辨識工具;裝置端不做 STT、不連 Wi-Fi | 合成的 Fn 事件無法觸發學舌鳥時(需改用虛擬 HID 等路線) |
 | 2026-11-13 | 按鍵:OK = 按住說話(push-to-talk);UP / DOWN 由使用者在 Mac App 設定功能 | 使用者指定 | — |
 | 2026-11-13 | 產品範圍只做兩件事:名牌(直式)+ 按住說話把文字送進電腦的麥克風;不做 Gemini/ChatGPT 語音對話 | 使用者明說「這兩個功能就夠了」;訂閱帳號無官方接入路徑,API 計費另付 | 使用者想加 AI 對話,或官方開放訂閱帳號給第三方裝置時 |
+| 2026-11-13 | 虛擬麥克風改用自寫的 AudioServerPlugIn 回環驅動「BadgeMic Microphone」(`companion/macos/Driver/`,MIT、只看 Apple 公開標頭),不再依賴 BlackHole / MiRemoteV;App 自動模式先找它,找不到才找其他 loopback,都沒有就不播(不送喇叭) | 目標 MacBook Air 只會裝我們的 App;BlackHole 是 GPL-3.0 不能打包進 MIT App | 驅動在真 coreaudiod 載不起來,或 macOS 改用 DriverKit/Audio Server 新機制時 |
+| 2026-11-13 | 長按關螢幕由裝置本地處理(`set_display.off_key`,存 NVS),不走 Mac 按鍵映射 | 要在沒連 Mac 時也能關;Mac 端只負責設定 | — |
+| 2026-11-13 | App 與驅動用真憑證簽名(Developer ID 優先,否則 Apple Development;以 hash 選、不寫名字進 repo),不再 ad-hoc | ad-hoc 的 DR 是 cdhash,每次重編掉輔助使用授權;使用者有 Apple 開發者帳號 | 要在別台 Mac 免右鍵開啟時 → 需 Developer ID Application 憑證 + notarize |
 | {{YYYY-MM-DD}} | {{採用 X 而非 Y}} | {{一句話}} | {{什麼情況要回頭看(選填)}} |
