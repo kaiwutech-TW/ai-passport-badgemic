@@ -7,7 +7,7 @@ cd "$ROOT"
 
 APP="$ROOT/dist/BadgeMic.app"
 BUNDLE_ID="${BUNDLE_ID:-tw.kaiwu.badgemic}"
-VERSION="${VERSION:-0.1.0}"
+VERSION="${VERSION:-0.1.1}"
 
 swift build -c release
 BIN_DIR="$(swift build -c release --show-bin-path)"

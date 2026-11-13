@@ -8,7 +8,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 PROFILE="${NOTARY_PROFILE:-BadgeMic}"
-VERSION="${VERSION:-0.1.0}"
+VERSION="${VERSION:-0.1.1}"
 APP="$ROOT/dist/BadgeMic.app"
 DMG="$ROOT/dist/BadgeMic-$VERSION.dmg"
 

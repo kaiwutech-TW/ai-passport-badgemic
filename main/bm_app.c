@@ -37,7 +37,7 @@
 
 static const char *TAG = "bm_app";
 
-#define BM_FW_VERSION "0.1.0"
+#define BM_FW_VERSION "0.1.1"
 #define APP_TASK_STACK 6144
 #define APP_TASK_PRIO 5
 #define QUEUE_DEPTH 48
