@@ -207,6 +207,26 @@ fail:
     return e;
 }
 
+esp_err_t bsp_battery_recover(void) {
+    if (!s_dev) return bsp_battery_init();
+
+    uint8_t config = 0xFF, alert = 0;
+    esp_err_t ce = cw_read(CW_REG_CONFIG, &config, 1);
+    esp_err_t ae = cw_read(CW_REG_SOC_ALERT, &alert, 1);
+    ESP_LOGW(TAG, "重新接管 CW2017:CONFIG=0x%02X(%s) UPDATE_FLAG=%d(%s)", config,
+             esp_err_to_name(ce), (alert & CW_UPDATE_FLAG) != 0, esp_err_to_name(ae));
+
+    s_ready = false;
+    // 芯片仍在正常态且 profile 标志在：init 不会重启计算，这里先重启一次。
+    // 其他情况(睡眠/复位态、标志丢失)交给 init 的 profile 校验与激活流程。
+    if (ce == ESP_OK && ae == ESP_OK && config == CW_CONFIG_ACTIVE &&
+        (alert & CW_UPDATE_FLAG) != 0 && cw_enter_active() != 0) {
+        ESP_LOGE(TAG, "重启 SOC 计算失败");
+        return ESP_FAIL;
+    }
+    return bsp_battery_init();
+}
+
 esp_err_t bsp_battery_sleep(void) {
     if (!s_dev) return ESP_OK;
 

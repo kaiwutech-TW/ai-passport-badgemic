@@ -47,7 +47,7 @@ bool bm_cmd_parse(const uint8_t *json, size_t len, bm_cmd_t *out);
 // Event builders: return the JSON length written (no NUL counted) or 0 if the
 // buffer is too small.
 size_t bm_ev_hello(char *buf, size_t cap, const char *fw, const char *model, int page_count,
-                   int battery, const bm_display_cfg_t *cfg, int mic_gain_db);
+                   int battery, int battery_mv, const bm_display_cfg_t *cfg, int mic_gain_db);
 size_t bm_ev_ptt_start(char *buf, size_t cap, uint32_t id);
 size_t bm_ev_ptt_end(char *buf, size_t cap, uint32_t id, uint32_t frames, uint32_t dropped,
                      const char *reason /* NULL, "timeout" or "link" */,
@@ -57,5 +57,6 @@ size_t bm_ev_key(char *buf, size_t cap, bool up, bool long_press);
 size_t bm_ev_display(char *buf, size_t cap, const bm_display_cfg_t *cfg);
 size_t bm_ev_put_ready(char *buf, size_t cap, int page);
 size_t bm_ev_put_done(char *buf, size_t cap, int page, bool ok, const char *err);
-size_t bm_ev_battery(char *buf, size_t cap, int pct);
+// battery_mv < 0 (unknown) omits the "battery_mv" field, also in hello.
+size_t bm_ev_battery(char *buf, size_t cap, int pct, int battery_mv);
 size_t bm_ev_error(char *buf, size_t cap, const char *cmd_name, const char *err);

@@ -152,3 +152,12 @@ bool bm_power_press_only_wakes(bm_stage_t before)
 {
     return before == BM_STAGE_OFF;
 }
+
+bm_batt_reading_t bm_battery_classify(int soc, int mv)
+{
+    if (soc < 0 || soc > 100) return BM_BATT_UNAVAILABLE;
+    if (mv < 0) return BM_BATT_OK;    // voltage unknown: nothing to check against
+    if (mv < BM_BATT_MV_MIN_PLAUSIBLE) return BM_BATT_IMPLAUSIBLE;
+    if (soc == 0 && mv >= BM_BATT_ZERO_SOC_MAX_MV) return BM_BATT_IMPLAUSIBLE;
+    return BM_BATT_OK;
+}

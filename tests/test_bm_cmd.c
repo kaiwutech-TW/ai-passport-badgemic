@@ -92,15 +92,15 @@ static void test_events(void)
     char b[400];
     bm_display_cfg_t cfg;
     bm_display_cfg_default(&cfg);
-    size_t n = bm_ev_hello(b, sizeof(b), "0.1.0", "Passport-3A2B", 2, 87, &cfg, 24);
+    size_t n = bm_ev_hello(b, sizeof(b), "0.1.0", "Passport-3A2B", 2, 87, 4114, &cfg, 24);
     assert(n && strlen(b) == n);
     assert(strstr(b, "\"ev\":\"hello\",\"proto\":1,\"fw\":\"0.1.0\",\"model\":\"Passport-3A2B\""));
     assert(strstr(b, "\"page\":{\"w\":240,\"h\":320,\"fmt\":\"rgb565le\",\"count\":2}"));
-    assert(strstr(b, "\"battery\":87,\"display\":{\"mode\":\"auto\",\"dim_s\":30,\"off_s\":120,"
+    assert(strstr(b, "\"battery\":87,\"battery_mv\":4114,\"display\":{\"mode\":\"auto\",\"dim_s\":30,\"off_s\":120,"
                      "\"sleep_min\":30,\"brightness\":80,\"dim_brightness\":20,\"off_key\":\"none\"},"
                      "\"audio\":{\"mic_gain_db\":24}}"));
     assert(strstr(b, "\"caps\":[\"opus\",\"put\",\"display\",\"audio\"]"));
-    assert(bm_ev_hello(b, 20, "0.1.0", "x", 2, 1, &cfg, 24) == 0);   // too small
+    assert(bm_ev_hello(b, 20, "0.1.0", "x", 2, 1, 4000, &cfg, 24) == 0);   // too small
 
     n = bm_ev_display(b, sizeof(b), &cfg);
     assert(n && strcmp(b, "{\"ev\":\"display\",\"mode\":\"auto\",\"dim_s\":30,\"off_s\":120,"
@@ -135,8 +135,12 @@ static void test_events(void)
     assert(strcmp(b, "{\"ev\":\"put_done\",\"page\":0,\"ok\":true}") == 0);
     bm_ev_put_done(b, sizeof(b), 0, false, "crc");
     assert(strcmp(b, "{\"ev\":\"put_done\",\"page\":0,\"ok\":false,\"err\":\"crc\"}") == 0);
-    bm_ev_battery(b, sizeof(b), 86);
+    n = bm_ev_hello(b, sizeof(b), "0.1.0", "Passport-3A2B", 2, -1, -1, &cfg, 24);
+    assert(n && strstr(b, "\"battery\":-1,\"display\":") && !strstr(b, "battery_mv"));
+    bm_ev_battery(b, sizeof(b), 86, -1);
     assert(strcmp(b, "{\"ev\":\"battery\",\"battery\":86}") == 0);
+    bm_ev_battery(b, sizeof(b), 86, 3987);
+    assert(strcmp(b, "{\"ev\":\"battery\",\"battery\":86,\"battery_mv\":3987}") == 0);
     bm_ev_error(b, sizeof(b), "bad\"cmd\\", "unknown");
     assert(strcmp(b, "{\"ev\":\"error\",\"cmd\":\"bad?cmd?\",\"err\":\"unknown\"}") == 0);
 }

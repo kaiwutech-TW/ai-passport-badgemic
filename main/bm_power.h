@@ -11,6 +11,21 @@
 
 #define BM_LOW_BATTERY_PCT 15
 
+// Fuel-gauge sanity check. The CW2017 can report 0 % (and even 0 mV) while the cell
+// is fine, e.g. after a reset or before its first SOC calculation; acting on that would
+// show an empty battery and drop always_on.
+#define BM_BATT_MV_MIN_PLAUSIBLE 2500   // the 3.3 V rail cannot run below this
+#define BM_BATT_ZERO_SOC_MAX_MV 3700    // 0 % above this voltage is a bad reading
+
+typedef enum {
+    BM_BATT_OK = 0,           // use soc (and mv when >= 0)
+    BM_BATT_UNAVAILABLE,      // the gauge did not answer: report -1
+    BM_BATT_IMPLAUSIBLE,      // answered with an impossible pair: keep the last good value
+} bm_batt_reading_t;
+
+// soc and mv as returned by bsp_battery_soc() / bsp_battery_mv() (-1 = read failed).
+bm_batt_reading_t bm_battery_classify(int soc, int mv);
+
 // Which long press turns the screen off locally (that gesture is then not reported).
 typedef enum { BM_OFF_KEY_NONE = 0, BM_OFF_KEY_UP_LONG = 1, BM_OFF_KEY_DOWN_LONG = 2 } bm_off_key_t;
 

@@ -65,6 +65,7 @@ final class AppModel: ObservableObject {
     @Published var ready = false
     @Published var protoMismatch = false
     @Published var battery: Int?
+    @Published var batteryMv: Int?
     @Published var deviceDisplay = DisplaySettings.defaults
     @Published var displayDraft = DisplaySettings.defaults
     @Published var displayError: String?
@@ -242,6 +243,7 @@ final class AppModel: ObservableObject {
             self.ready = false
             self.hello = nil
             self.battery = nil
+            self.batteryMv = nil
             self.failUpload(UploadError.notReady)
             self.pttInput(.disconnect)
         }
@@ -305,6 +307,7 @@ final class AppModel: ObservableObject {
         case .hello(let h):
             hello = h
             battery = h.battery >= 0 ? h.battery : nil
+            batteryMv = h.batteryMv
             if let d = h.display {
                 deviceDisplay = DisplaySettings.defaults.merged(with: d)
                 displayDraft = deviceDisplay
@@ -336,8 +339,9 @@ final class AppModel: ObservableObject {
         case .display(let d):
             deviceDisplay = deviceDisplay.merged(with: d)
             displayDraft = deviceDisplay
-        case .battery(let b):
+        case .battery(let b, let mv):
             battery = b >= 0 ? b : nil
+            batteryMv = mv
             pttInput(.otherEvent)
         case .error(let cmd, let err):
             addLog("裝置錯誤 \(cmd ?? "?"): \(err ?? "?")")

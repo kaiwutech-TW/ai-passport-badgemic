@@ -9,6 +9,9 @@
 #include "bsp_display.h"
 #include "esp_lcd_panel_ops.h"
 #include "esp_log.h"
+#include "esp_timer.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "lvgl.h"
 
 static const char *TAG = "bm_ui";
@@ -35,6 +38,7 @@ static struct {
     int dsc_idx;
     bool page_shown;
     bool panel_on;
+    int64_t sleep_in_us;      // last Sleep In; ST7789 needs 120 ms before Sleep Out
 } s_ui;
 
 static lv_obj_t *plain(lv_obj_t *parent, int w, int h)
@@ -344,11 +348,22 @@ void bm_ui_set_display(bool panel_on, uint8_t backlight_pct)
     esp_lcd_panel_handle_t panel = bsp_display_panel();
     if (!panel_on) {
         bsp_display_backlight(0);
-        if (s_ui.panel_on && panel) esp_lcd_panel_disp_on_off(panel, false);
+        if (s_ui.panel_on && panel) {
+            esp_lcd_panel_disp_on_off(panel, false);
+            // Sleep In stops the panel's DC/DC, oscillator and scanning; frame memory and
+            // the SPI interface keep working, so LVGL may keep flushing. Blocks ~100 ms.
+            if (esp_lcd_panel_disp_sleep(panel, true) != ESP_OK) ESP_LOGW(TAG, "LCD sleep in failed");
+            s_ui.sleep_in_us = esp_timer_get_time();
+        }
         s_ui.panel_on = false;
         return;
     }
-    if (!s_ui.panel_on && panel) esp_lcd_panel_disp_on_off(panel, true);   // panel first
+    if (!s_ui.panel_on && panel) {                                         // panel first
+        int64_t since_ms = (esp_timer_get_time() - s_ui.sleep_in_us) / 1000;
+        if (since_ms < 120) vTaskDelay(pdMS_TO_TICKS(120 - since_ms) + 1);
+        if (esp_lcd_panel_disp_sleep(panel, false) != ESP_OK) ESP_LOGW(TAG, "LCD sleep out failed");
+        esp_lcd_panel_disp_on_off(panel, true);
+    }
     s_ui.panel_on = true;
     bsp_display_backlight(backlight_pct);                                  // backlight second
 }

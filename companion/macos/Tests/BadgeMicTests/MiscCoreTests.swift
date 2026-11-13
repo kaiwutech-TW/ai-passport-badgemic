@@ -94,6 +94,22 @@ import Testing
         #expect(o.micGainDb == nil)
     }
 
+    @Test func helloBatteryVoltage() {
+        let with = #"{"ev":"hello","proto":1,"fw":"x","model":"m","caps":[],"battery":93,"battery_mv":4114}"#
+        guard case .hello(let h)? = DeviceEvent.parse(Array(with.utf8)) else { Issue.record("no hello"); return }
+        #expect(h.battery == 93 && h.batteryMv == 4114)
+        let without = #"{"ev":"hello","proto":1,"fw":"x","model":"m","caps":[],"battery":93}"#
+        guard case .hello(let o)? = DeviceEvent.parse(Array(without.utf8)) else { Issue.record("no hello"); return }
+        #expect(o.batteryMv == nil)
+    }
+
+    @Test func batteryLabelFormats() {
+        #expect(batteryLabel(93, mv: 4114) == "93% · 4.11 V")
+        #expect(batteryLabel(93, mv: nil) == "93%")
+        #expect(batteryLabel(nil, mv: 3987) == "— · 3.99 V")
+        #expect(batteryLabel(nil, mv: nil) == "—")
+    }
+
     @Test func audioEvent() {
         #expect(DeviceEvent.parse(Array(#"{"ev":"audio","mic_gain_db":30}"#.utf8)) == .audio(micGainDb: 30))
         #expect(DeviceEvent.parse(Array(#"{"ev":"audio"}"#.utf8)) == nil)
@@ -117,6 +133,7 @@ import Testing
         #expect(p(#"{"ev":"put_ready","page":0}"#) == .putReady(page: 0))
         #expect(p(#"{"ev":"put_done","page":1,"ok":false,"err":"crc"}"#) == .putDone(page: 1, ok: false, err: "crc"))
         #expect(p(#"{"ev":"battery","battery":86}"#) == .battery(86))
+        #expect(p(#"{"ev":"battery","battery":86,"battery_mv":3987}"#) == .battery(86, mv: 3987))
         #expect(p(#"{"ev":"error","cmd":"foo","err":"unknown"}"#) == .error(cmd: "foo", err: "unknown"))
         #expect(p(#"{"ev":"display","mode":"always_on","brightness":50}"#) == .display(DisplaySettings(mode: .alwaysOn, brightness: 50)))
         #expect(p(#"{"ev":"zzz"}"#) == .unknown("zzz"))

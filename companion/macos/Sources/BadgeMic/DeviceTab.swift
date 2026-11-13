@@ -12,7 +12,7 @@ struct DeviceTab: View {
                         row("狀態", model.statusText)
                         row("裝置", model.deviceName ?? "—")
                         row("韌體", model.hello?.fw ?? "—")
-                        row("電量", model.battery.map { "\($0)%" } ?? "—")
+                        row("電量", batteryLabel(model.battery, mv: model.batteryMv))
                         if let h = model.hello, model.protoMismatch {
                             Text("⚠️ 協定版本不符(裝置 proto \(h.proto),App proto \(supportedProtocolVersion))。請更新韌體或 App;收音已停用。")
                                 .foregroundStyle(.red)

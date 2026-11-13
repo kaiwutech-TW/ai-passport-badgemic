@@ -67,7 +67,7 @@ Device, as an `EVENT` after subscription:
 {"ev":"hello","proto":1,"fw":"0.1.0","model":"Passport-3A2B",
  "caps":["opus","put","display","audio"],
  "page":{"w":240,"h":320,"fmt":"rgb565le","count":2},
- "battery":87,
+ "battery":87,"battery_mv":4114,
  "display":{"mode":"auto","dim_s":30,"off_s":120,"sleep_min":30,"brightness":80,"dim_brightness":20,
             "off_key":"none"},
  "audio":{"mic_gain_db":24}}
@@ -85,7 +85,8 @@ If the Mac has no device hello 1 s after subscribing, it sends
 answers with its hello. The device sends no `ptt_start`, audio, or `key` events until it has received a Mac
 `hello` with a matching `proto`; a mismatch is answered with
 `{"ev":"error","cmd":"hello","err":"proto"}`. `battery` is a percentage, or `-1`
-when unavailable. A peer that sees a different
+when unavailable. `battery_mv` is the cell voltage in millivolts and is omitted
+when unknown (older firmware never sends it). A peer that sees a different
 `proto` must show a visible version-mismatch message and must not stream audio.
 
 ## Push-to-talk
@@ -206,8 +207,20 @@ never replaces the previously active image.
 
 ## Status
 
-The device sends `{"ev":"battery","battery":86}` when the reported percentage
-changes, at most once per minute.
+The device sends `{"ev":"battery","battery":86,"battery_mv":3987}` when the
+reported percentage changes or the voltage moves by 50 mV or more, at most once per
+minute (`battery_mv` omitted when unknown).
+
+The device does not trust the fuel gauge blindly: a reading of 0 % at 3.7 V or more,
+or any reading below 2.5 V, is treated as a gauge glitch. The device keeps the last
+good value (or reports `-1` if it has none), and after two such readings in a row
+re-initializes the gauge, at most once every 10 minutes.
+
+While the screen is off (`OFF` stage, including after `off_key`) and no turn or
+upload is running, the device asks the Mac for a slow connection: 90–120 ms
+interval, peripheral latency 4, 4 s supervision timeout. Any wake-up asks for
+15–30 ms again. Commands sent by the Mac while the screen is off can therefore take
+up to about 0.6 s to arrive.
 
 ## Error handling
 

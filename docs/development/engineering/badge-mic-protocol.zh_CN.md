@@ -59,7 +59,7 @@ Shinku-Chen 以 MIT 许可发布的 Pocket Intercom 协议（`Shinku-Chen/ai-pas
 {"ev":"hello","proto":1,"fw":"0.1.0","model":"Passport-3A2B",
  "caps":["opus","put","display","audio"],
  "page":{"w":240,"h":320,"fmt":"rgb565le","count":2},
- "battery":87,
+ "battery":87,"battery_mv":4114,
  "display":{"mode":"auto","dim_s":30,"off_s":120,"sleep_min":30,"brightness":80,"dim_brightness":20,
             "off_key":"none"},
  "audio":{"mic_gain_db":24}}
@@ -73,7 +73,7 @@ Mac 看到设备 hello 后以 `CONTROL` 发送：
 
 设备 hello 可能早于 Mac 自己的订阅回调到达，也可能丢失。Mac 订阅后 1 s 仍未收到设备 hello 时，
 发送 `{"cmd":"get_hello"}`（每 1.5 s 重试，最多 8 次），设备以自己的 hello 回复。设备在收到 `proto` 相符的 Mac `hello` 之前，不发送 `ptt_start`、音频或 `key` 事件；不符时回复
-`{"ev":"error","cmd":"hello","err":"proto"}`。`battery` 为百分比，不可用时为 `-1`。看到不同 `proto` 的一方必须显示可见的版本不符提示，
+`{"ev":"error","cmd":"hello","err":"proto"}`。`battery` 为百分比，不可用时为 `-1`。`battery_mv` 为电池电压（毫伏），未知时省略（旧固件不发送）。看到不同 `proto` 的一方必须显示可见的版本不符提示，
 且不得传输音频。
 
 ## 按住说话
@@ -177,7 +177,15 @@ Mac 可在快捷键已按住且虚拟麦克风开始接收后回复 `{"cmd":"ptt
 
 ## 状态
 
-电量百分比变化时，设备发送 `{"ev":"battery","battery":86}`，每分钟最多一次。
+电量百分比变化或电压变化达 50 mV 时，设备发送 `{"ev":"battery","battery":86,"battery_mv":3987}`，
+每分钟最多一次（电压未知时省略 `battery_mv`）。
+
+设备不盲信电量计：电压 3.7 V 以上却读到 0 %，或任何低于 2.5 V 的读数，都视为电量计误读。
+设备保留上一个可信值（没有时上报 `-1`），连续两次误读后重新初始化电量计，每 10 分钟最多一次。
+
+屏幕熄灭（`OFF` 阶段，包括 `off_key` 熄屏）且没有对话或上传进行时，设备请求 Mac 改用慢速连接：
+间隔 90–120 ms、从机延迟 4、监督超时 4 s。任何唤醒都会重新请求 15–30 ms。因此熄屏期间
+Mac 发出的命令最多约 0.6 s 才会送达。
 
 ## 错误处理
 

@@ -293,6 +293,39 @@ static void test_cold_start_guard(void)
     assert(bsp_battery_soc() == 62 && bsp_battery_mv() == 4000);
 }
 
+static void test_recover(void)
+{
+    /* 正常态下 SOC 卡在 0:重启一次计算(RESTART→ACTIVE),profile 不重写，等待就绪 */
+    reset_device(true, true);
+    assert(bsp_battery_init() == ESP_OK);
+    config_count = 0;
+    soc_polls = 0;
+    assert(bsp_battery_recover() == ESP_OK);
+    assert(config_count == 2 && config_writes[0] == CW_CONFIG_RESTART &&
+           config_writes[1] == CW_CONFIG_ACTIVE);
+    assert(profile_writes == 0 && soc_polls == 1 && s_ready);
+
+    /* 电量计被置于睡眠态：交给 init 激活，只走一次 RESTART→ACTIVE */
+    reset_device(true, true);
+    assert(bsp_battery_init() == ESP_OK);
+    registers[CW_REG_CONFIG] = CW_CONFIG_SLEEP;
+    config_count = 0;
+    assert(bsp_battery_recover() == ESP_OK);
+    assert(config_count == 2 && config_writes[1] == CW_CONFIG_ACTIVE && profile_writes == 0);
+
+    /* profile 标志丢失(芯片掉电复位):重写 profile */
+    reset_device(true, true);
+    assert(bsp_battery_init() == ESP_OK);
+    registers[CW_REG_SOC_ALERT] &= (uint8_t)~CW_UPDATE_FLAG;
+    config_count = 0;
+    assert(bsp_battery_recover() == ESP_OK);
+    assert(profile_writes == 80 && flag_writes == 1);
+
+    /* 未初始化：等同 init */
+    reset_device(true, true);
+    assert(bsp_battery_recover() == ESP_OK && adds == 1 && s_ready);
+}
+
 int main(void)
 {
     test_update_and_matching_profiles();
@@ -300,6 +333,7 @@ int main(void)
     test_missing_and_recovery();
     test_soc_and_voltage();
     test_cold_start_guard();
-    puts("CW2017 battery: profile migration/readback, match, faults, retry, SOC/voltage PASS");
+    test_recover();
+    puts("CW2017 battery: profile migration/readback, match, faults, retry, SOC/voltage, recover PASS");
     return 0;
 }

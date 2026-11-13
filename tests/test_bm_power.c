@@ -190,6 +190,21 @@ static void test_off_key(void)
     assert(t.left_always_on && !p.cfg.always_on && p.stage == BM_STAGE_OFF);
 }
 
+static void test_battery_classify(void)
+{
+    assert(bm_battery_classify(93, 4114) == BM_BATT_OK);
+    assert(bm_battery_classify(0, 3400) == BM_BATT_OK);           // a really empty cell
+    assert(bm_battery_classify(0, 3699) == BM_BATT_OK);
+    assert(bm_battery_classify(0, 3700) == BM_BATT_IMPLAUSIBLE);  // 0 % with a healthy voltage
+    assert(bm_battery_classify(0, 4114) == BM_BATT_IMPLAUSIBLE);
+    assert(bm_battery_classify(0, 0) == BM_BATT_IMPLAUSIBLE);     // cold-start zero pair
+    assert(bm_battery_classify(62, 2499) == BM_BATT_IMPLAUSIBLE);
+    assert(bm_battery_classify(62, 2500) == BM_BATT_OK);
+    assert(bm_battery_classify(62, -1) == BM_BATT_OK);            // voltage read failed
+    assert(bm_battery_classify(-1, 4000) == BM_BATT_UNAVAILABLE);
+    assert(bm_battery_classify(101, 4000) == BM_BATT_UNAVAILABLE);
+}
+
 int main(void)
 {
     test_defaults_and_clamp();
@@ -197,6 +212,7 @@ int main(void)
     test_busy_and_custom_values();
     test_always_on();
     test_off_key();
-    puts("test_bm_power: 5 tests PASS");
+    test_battery_classify();
+    puts("test_bm_power: 6 tests PASS");
     return 0;
 }

@@ -41,6 +41,13 @@ public struct PttStats: Codable, Equatable, Sendable {
     }
 }
 
+/// "93% · 4.11 V"; either part falls back to "—" when unknown.
+public func batteryLabel(_ pct: Int?, mv: Int?) -> String {
+    let p = pct.map { "\($0)%" } ?? "—"
+    guard let mv, mv > 0 else { return p }
+    return "\(p) · " + String(format: "%.2f V", Double(mv) / 1000)
+}
+
 public let micGainStepsDb = [0, 6, 12, 18, 24, 30, 36, 42]
 
 public struct HelloInfo: Equatable, Sendable {
@@ -50,6 +57,8 @@ public struct HelloInfo: Equatable, Sendable {
     public var caps: [String]
     public var page: PageInfo?
     public var battery: Int
+    /// Cell voltage in mV; nil when the firmware does not send it.
+    public var batteryMv: Int? = nil
     public var display: DisplaySettings?
     /// nil when the firmware has no `audio` object (older firmware).
     public var micGainDb: Int?
@@ -68,7 +77,7 @@ public enum DeviceEvent: Equatable, Sendable {
     case display(DisplaySettings)
     case putReady(page: Int)
     case putDone(page: Int, ok: Bool, err: String?)
-    case battery(Int)
+    case battery(Int, mv: Int? = nil)
     case error(cmd: String?, err: String?)
     case unknown(String)
 
@@ -79,7 +88,7 @@ public enum DeviceEvent: Equatable, Sendable {
         case "hello":
             return .hello(HelloInfo(proto: raw.proto ?? 0, fw: raw.fw ?? "?", model: raw.model ?? "?",
                                     caps: raw.caps ?? [], page: raw.page, battery: raw.battery ?? -1,
-                                    display: raw.display, micGainDb: raw.audio?.mic_gain_db))
+                                    batteryMv: raw.battery_mv, display: raw.display, micGainDb: raw.audio?.mic_gain_db))
         case "ptt_start":
             guard let id = raw.id else { return nil }
             return .pttStart(id: id)
@@ -101,7 +110,7 @@ public enum DeviceEvent: Equatable, Sendable {
         case "put_done":
             return .putDone(page: raw.page_ ?? 0, ok: raw.ok ?? false, err: raw.err)
         case "battery":
-            return .battery(raw.battery ?? -1)
+            return .battery(raw.battery ?? -1, mv: raw.battery_mv)
         case "error":
             return .error(cmd: raw.cmd, err: raw.err)
         default:
@@ -118,6 +127,7 @@ public enum DeviceEvent: Equatable, Sendable {
         var page: PageInfo?
         var page_: Int?
         var battery: Int?
+        var battery_mv: Int?
         var display: DisplaySettings?
         var id: Int?
         var frames: Int?
@@ -142,7 +152,7 @@ public enum DeviceEvent: Equatable, Sendable {
         }
 
         enum CodingKeys: String, CodingKey {
-            case ev, proto, fw, model, caps, page, battery, display, id, frames, dropped, reason, key, gesture, ok, err, cmd, stats, audio, mic_gain_db
+            case ev, proto, fw, model, caps, page, battery, battery_mv, display, id, frames, dropped, reason, key, gesture, ok, err, cmd, stats, audio, mic_gain_db
         }
 
         init(from decoder: Decoder) throws {
@@ -156,6 +166,7 @@ public enum DeviceEvent: Equatable, Sendable {
             if let p = try? c.decodeIfPresent(PageInfo.self, forKey: .page) { page = p }
             if let n = try? c.decodeIfPresent(Int.self, forKey: .page) { page_ = n }
             battery = try? c.decodeIfPresent(Int.self, forKey: .battery)
+            battery_mv = try? c.decodeIfPresent(Int.self, forKey: .battery_mv)
             display = try? c.decodeIfPresent(DisplaySettings.self, forKey: .display)
             id = try? c.decodeIfPresent(Int.self, forKey: .id)
             frames = try? c.decodeIfPresent(Int.self, forKey: .frames)

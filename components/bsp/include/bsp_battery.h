@@ -13,6 +13,11 @@ esp_err_t bsp_battery_init(void);
 // sleep 前的终端操作；芯片未初始化时视为无需处理并返回成功。
 esp_err_t bsp_battery_sleep(void);
 
+// 运行期读数不可信时(例如电压正常却读到 0%)重新接管电量计:记录 CONFIG 与
+// UPDATE_FLAG,profile 丢失则重写,已处于正常态则重启一次 SOC 计算，然后等待就绪。
+// 最长阻塞约 5 s(就绪等待窗口),调用方应限频。未初始化时等同 bsp_battery_init()。
+esp_err_t bsp_battery_recover(void);
+
 // 剩余电量百分比 0..100;读失败返回 -1。
 int bsp_battery_soc(void);
 

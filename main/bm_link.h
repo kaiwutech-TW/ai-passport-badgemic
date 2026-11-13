@@ -41,4 +41,8 @@ esp_err_t bm_link_send(const uint8_t *frame, size_t len);
 size_t bm_link_read(uint8_t *out, size_t cap);
 void bm_link_flush_rx(void);
 const char *bm_link_device_name(void);
+// Screen-off power saving: on = ask the Mac for a slow connection (90-120 ms interval,
+// peripheral latency 4), off = back to 15-30 ms. Idempotent; call it as often as you
+// like. Applied once the link is ready; a refused or busy request is retried after 5 s.
+void bm_link_set_low_power(bool on);
 uint32_t bm_link_tx_drop_count(void);

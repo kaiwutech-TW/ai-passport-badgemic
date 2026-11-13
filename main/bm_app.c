@@ -2,6 +2,7 @@
 // callbacks, NimBLE host, audio encoder) only enqueue or push into the pre-roll ring.
 #include "bm_app.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 #include "bm_audio.h"
@@ -43,6 +44,9 @@ static const char *TAG = "bm_app";
 #define BATTERY_POLL_MS 30000u
 #define BATTERY_EVENT_MIN_MS 60000u
 #define DEEP_SLEEP_RETRY_MS 5000u
+#define BATTERY_EVENT_MV_STEP 50        // also report a voltage change this large
+#define BATTERY_BAD_READS_RECOVER 2     // consecutive impossible readings before re-taking the gauge
+#define BATTERY_RECOVER_MIN_MS 600000u  // at most one gauge recovery every 10 min (it can block 5 s)
 
 typedef enum { EV_KEY, EV_LINK } app_ev_type_t;
 
@@ -76,6 +80,11 @@ static bool s_ok_wake_only;
 static bm_tx_t s_tx;
 static int s_battery = -1;
 static int s_battery_sent = -2;
+static int s_battery_mv = -1;           // last plausible voltage, -1 = unknown
+static int s_battery_mv_sent = -1;
+static unsigned s_battery_bad_reads;
+static uint32_t s_battery_recover_ms;
+static bool s_battery_recovered;        // a recovery has run (the 10 min limit applies)
 static uint32_t s_battery_poll_ms;
 static uint32_t s_battery_sent_ms;
 static uint32_t s_deep_retry_ms;
@@ -120,7 +129,7 @@ static void send_hello(void)
 {
     char b[BM_JSON_PAYLOAD_MAX];
     send_event(b, bm_ev_hello(b, sizeof(b), BM_FW_VERSION, bm_link_device_name(), BM_PAGE_COUNT,
-                              s_battery, &s_power.cfg, s_mic_gain_db));
+                              s_battery < 0 ? -1 : s_battery, s_battery_mv, &s_power.cfg, s_mic_gain_db));
 }
 
 static void send_display(void)
@@ -148,6 +157,7 @@ static void apply_stage(void)
     bm_ui_set_display(on, bm_power_backlight(&s_power));
     esp_pm_config_t pm = {.max_freq_mhz = 160, .min_freq_mhz = on ? 160 : 40, .light_sleep_enable = false};
     esp_pm_configure(&pm);
+    bm_link_set_low_power(!on);    // waking asks for the fast link right away
 }
 
 static void note_activity(void)
@@ -535,6 +545,7 @@ static void handle_link(const bm_link_event_t *ev)
             bm_ui_hide_passkey();
             bm_ui_set_link(BM_UI_LINK_READY);
             s_battery_sent = s_battery;
+            s_battery_mv_sent = s_battery_mv;
             s_battery_sent_ms = now_ms();
             send_hello();
             note_activity();
@@ -605,16 +616,46 @@ static void poll_battery(uint32_t now)
 {
     s_battery_poll_ms = now;
     int pct = bsp_battery_soc();
-    if (pct > 100) pct = 100;
+    int mv = bsp_battery_mv();
+    switch (bm_battery_classify(pct, mv)) {
+    case BM_BATT_OK:
+        s_battery_bad_reads = 0;
+        if (mv >= 0) s_battery_mv = mv;
+        break;
+    case BM_BATT_UNAVAILABLE:
+        pct = -1;
+        s_battery_mv = -1;
+        break;
+    case BM_BATT_IMPLAUSIBLE:
+        // Keep the last good value (or none at boot) instead of showing an empty battery.
+        ESP_LOGW(TAG, "implausible battery reading %d%% %d mV, keeping %d%%", pct, mv, s_battery);
+        pct = s_battery < 0 ? -1 : s_battery;
+        if (++s_battery_bad_reads >= BATTERY_BAD_READS_RECOVER &&
+            (!s_battery_recovered || now - s_battery_recover_ms >= BATTERY_RECOVER_MIN_MS)) {
+            s_battery_bad_reads = 0;
+            s_battery_recovered = true;
+            s_battery_recover_ms = now;
+            esp_err_t e = bsp_battery_recover();
+            int rp = bsp_battery_soc(), rmv = bsp_battery_mv();
+            ESP_LOGW(TAG, "battery gauge recovery: %s, now %d%% %d mV", esp_err_to_name(e), rp, rmv);
+            if (bm_battery_classify(rp, rmv) == BM_BATT_OK) {
+                pct = rp;
+                if (rmv >= 0) s_battery_mv = rmv;
+            }
+        }
+        break;
+    }
     if (pct != s_battery) {
         s_battery = pct;
         bm_ui_set_battery(pct);
     }
-    if (usable() && s_battery != s_battery_sent && now - s_battery_sent_ms >= BATTERY_EVENT_MIN_MS) {
+    bool mv_moved = s_battery_mv >= 0 && (s_battery_mv_sent < 0 || abs(s_battery_mv - s_battery_mv_sent) >= BATTERY_EVENT_MV_STEP);
+    if (usable() && (s_battery != s_battery_sent || mv_moved) && now - s_battery_sent_ms >= BATTERY_EVENT_MIN_MS) {
         s_battery_sent = s_battery;
+        s_battery_mv_sent = s_battery_mv;
         s_battery_sent_ms = now;
         char b[BM_JSON_PAYLOAD_MAX];
-        send_event(b, bm_ev_battery(b, sizeof(b), s_battery));
+        send_event(b, bm_ev_battery(b, sizeof(b), s_battery, s_battery_mv));
     }
 }
 
@@ -651,6 +692,7 @@ static void periodic(void)
         if (usable()) send_display();
     }
     if (t.stage_changed) apply_stage();
+    bm_link_set_low_power(s_power.stage == BM_STAGE_OFF && !busy);
     if (t.deep_sleep_due && !busy && (int32_t)(now - s_deep_retry_ms) >= 0) enter_deep_sleep();
 }
 

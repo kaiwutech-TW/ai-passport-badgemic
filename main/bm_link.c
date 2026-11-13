@@ -65,6 +65,8 @@ static struct {
     bool secure;               // encrypted + authenticated + bonded + 16-byte key
     bool notify_subscribed;
     uint16_t conn_handle;
+    bool lp_applied;           // last parameters we asked for on this connection (false = fast)
+    int64_t lp_retry_us;       // no new request before this time
     uint16_t tx_value_handle;
     uint8_t own_addr_type;
     char device_name[24];
@@ -276,6 +278,8 @@ static int bm_gap_event(struct ble_gap_event *event, void *arg)
         s_link.conn_handle = event->connect.conn_handle;
         s_link.secure = false;
         s_link.notify_subscribed = false;
+        s_link.lp_applied = false;     // the Mac picks its own (fast) parameters at connect
+        s_link.lp_retry_us = 0;
         xSemaphoreGive(s_link.mutex);
 
         bm_link_event_t ev = { .type = BM_LINK_EV_CONNECTED };
@@ -294,6 +298,7 @@ static int bm_gap_event(struct ble_gap_event *event, void *arg)
             s_link.conn_handle = BLE_HS_CONN_HANDLE_NONE;
             s_link.secure = false;
             s_link.notify_subscribed = false;
+            s_link.lp_applied = false;
         }
         xSemaphoreGive(s_link.mutex);
         if (was_connected) {
@@ -306,6 +311,25 @@ static int bm_gap_event(struct ble_gap_event *event, void *arg)
 
     case BLE_GAP_EVENT_ADV_COMPLETE:
         return bm_reconcile_advertising();
+
+    case BLE_GAP_EVENT_CONN_UPDATE: {
+        struct ble_gap_conn_desc desc = {0};
+        if (event->conn_update.status == 0 && ble_gap_conn_find(event->conn_update.conn_handle, &desc) == 0) {
+            ESP_LOGI(TAG, "conn params: interval %u.%02u ms, latency %u, timeout %u ms",
+                     (unsigned)(desc.conn_itvl * 125U / 100U), (unsigned)(desc.conn_itvl * 125U % 100U),
+                     (unsigned)desc.conn_latency, (unsigned)desc.supervision_timeout * 10U);
+        } else {
+            // The Mac turned the request down: forget it and ask again later.
+            ESP_LOGW(TAG, "conn param update failed status=%d", event->conn_update.status);
+            xSemaphoreTake(s_link.mutex, portMAX_DELAY);
+            if (s_link.conn_handle == event->conn_update.conn_handle) {
+                s_link.lp_applied = !s_link.lp_applied;
+                s_link.lp_retry_us = esp_timer_get_time() + 30LL * 1000 * 1000;
+            }
+            xSemaphoreGive(s_link.mutex);
+        }
+        return 0;
+    }
 
     case BLE_GAP_EVENT_ENC_CHANGE: {
         struct ble_gap_conn_desc desc = {0};
@@ -480,6 +504,47 @@ bool bm_link_connected(void)
     bool connected = s_link.conn_handle != BLE_HS_CONN_HANDLE_NONE;
     xSemaphoreGive(s_link.mutex);
     return connected;
+}
+
+// Apple accessory guidelines: interval_min >= 15 ms, interval_min + 15 ms <= interval_max,
+// interval_max * (latency + 1) <= 2 s, and 3x that < supervision timeout <= 6 s.
+#define BM_LP_ITVL_MIN 72U      // 90 ms (1.25 ms units)
+#define BM_LP_ITVL_MAX 96U      // 120 ms
+#define BM_LP_LATENCY 4U        // listen at least every 600 ms
+#define BM_FAST_ITVL_MIN 12U    // 15 ms
+#define BM_FAST_ITVL_MAX 24U    // 30 ms
+#define BM_CONN_TIMEOUT 400U    // 4 s (10 ms units)
+#define BM_LP_RETRY_US (5LL * 1000 * 1000)
+
+void bm_link_set_low_power(bool on)
+{
+    if (!s_link.initialized) return;
+    int64_t now = esp_timer_get_time();
+    xSemaphoreTake(s_link.mutex, portMAX_DELAY);
+    uint16_t conn = s_link.conn_handle;
+    bool due = link_ready_locked() && s_link.lp_applied != on && now >= s_link.lp_retry_us;
+    xSemaphoreGive(s_link.mutex);
+    if (!due) return;
+
+    struct ble_gap_upd_params p = {
+        .itvl_min = on ? BM_LP_ITVL_MIN : BM_FAST_ITVL_MIN,
+        .itvl_max = on ? BM_LP_ITVL_MAX : BM_FAST_ITVL_MAX,
+        .latency = on ? BM_LP_LATENCY : 0,
+        .supervision_timeout = BM_CONN_TIMEOUT,
+    };
+    int rc = ble_gap_update_params(conn, &p);
+    if (rc != 0) {
+        // Busy (pairing, another update) or refused: back off, then try again.
+        ESP_LOGW(TAG, "conn param request (%s) failed: %d, retrying in 5 s", on ? "low power" : "fast", rc);
+        xSemaphoreTake(s_link.mutex, portMAX_DELAY);
+        s_link.lp_retry_us = now + BM_LP_RETRY_US;
+        xSemaphoreGive(s_link.mutex);
+        return;
+    }
+    ESP_LOGI(TAG, "requested %s connection parameters", on ? "low-power" : "fast");
+    xSemaphoreTake(s_link.mutex, portMAX_DELAY);
+    if (s_link.conn_handle == conn) s_link.lp_applied = on;
+    xSemaphoreGive(s_link.mutex);
 }
 
 void bm_link_disconnect(void)

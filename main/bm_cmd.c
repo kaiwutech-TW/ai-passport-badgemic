@@ -245,16 +245,18 @@ static size_t cfg_fields(char *buf, size_t cap, const bm_display_cfg_t *c)
 }
 
 size_t bm_ev_hello(char *buf, size_t cap, const char *fw, const char *model, int page_count,
-                   int battery, const bm_display_cfg_t *cfg, int mic_gain_db)
+                   int battery, int battery_mv, const bm_display_cfg_t *cfg, int mic_gain_db)
 {
     char disp[160];
+    char mv[32] = "";
     if (!cfg_fields(disp, sizeof(disp), cfg)) return 0;
+    if (battery_mv >= 0) snprintf(mv, sizeof(mv), ",\"battery_mv\":%d", battery_mv);
     int n = snprintf(buf, cap,
                      "{\"ev\":\"hello\",\"proto\":%u,\"fw\":\"%s\",\"model\":\"%s\","
                      "\"caps\":[\"opus\",\"put\",\"display\",\"audio\"],"
                      "\"page\":{\"w\":240,\"h\":320,\"fmt\":\"rgb565le\",\"count\":%d},"
-                     "\"battery\":%d,\"display\":{%s},\"audio\":{\"mic_gain_db\":%d}}",
-                     (unsigned)1, fw, model, page_count, battery, disp, mic_gain_db);
+                     "\"battery\":%d%s,\"display\":{%s},\"audio\":{\"mic_gain_db\":%d}}",
+                     (unsigned)1, fw, model, page_count, battery, mv, disp, mic_gain_db);
     return finish(n, cap);
 }
 
@@ -310,9 +312,11 @@ size_t bm_ev_put_done(char *buf, size_t cap, int page, bool ok, const char *err)
                            page, err ? err : "failed"), cap);
 }
 
-size_t bm_ev_battery(char *buf, size_t cap, int pct)
+size_t bm_ev_battery(char *buf, size_t cap, int pct, int battery_mv)
 {
-    return finish(snprintf(buf, cap, "{\"ev\":\"battery\",\"battery\":%d}", pct), cap);
+    if (battery_mv < 0) return finish(snprintf(buf, cap, "{\"ev\":\"battery\",\"battery\":%d}", pct), cap);
+    return finish(snprintf(buf, cap, "{\"ev\":\"battery\",\"battery\":%d,\"battery_mv\":%d}", pct, battery_mv),
+                  cap);
 }
 
 size_t bm_ev_error(char *buf, size_t cap, const char *cmd_name, const char *err)
