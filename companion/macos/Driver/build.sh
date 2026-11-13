@@ -26,6 +26,16 @@ pick_identity() {
 }
 ID="$(pick_identity)"
 if [ "$ID" = "-" ]; then echo "signing: ad-hoc"; else echo "signing: identity $ID"; fi
-codesign --force --sign "$ID" "$OUT"
+# Hardened runtime + secure timestamp are required for notarization (Developer ID);
+# a timestamp is skipped for other identities so offline builds keep working.
+OPTS=()
+if [ "$ID" != "-" ]; then
+  if security find-identity -v -p codesigning | grep -F "$ID" | grep -q "Developer ID Application"; then
+    OPTS=(--options runtime --timestamp)
+  else
+    OPTS=(--options runtime --timestamp=none)
+  fi
+fi
+codesign --force --sign "$ID" ${OPTS[@]+"${OPTS[@]}"} "$OUT"
 codesign --verify --verbose=2 "$OUT"
 echo "built: $OUT"
