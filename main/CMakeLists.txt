@@ -8,6 +8,7 @@ idf_component_register(
          "bm_crc32.c"
          "bm_input.c"
          "bm_link.c"
+         "bm_meter.c"
          "bm_pages.c"
          "bm_power.c"
          "bm_proto.c"

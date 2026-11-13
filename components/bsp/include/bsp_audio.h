@@ -44,3 +44,7 @@ esp_err_t bsp_audio_read(void *pcm, size_t bytes);
 
 // 输出音量 0..100(%)。
 void bsp_audio_set_volume(uint8_t percent);
+
+// 麦克风增益(dB,ES8311 以 6 dB 为一级:0..42,其余值由驱动向下取级)。默认 30。
+// 已打开且未休眠时立即生效，否则在下次打开 codec 时生效。
+esp_err_t bsp_audio_set_mic_gain(float db);

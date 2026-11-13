@@ -11,14 +11,15 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "bm_meter.h"
 #include "esp_err.h"
 
 #define BM_AUDIO_HZ 16000U
 #define BM_AUDIO_FRAME_MS 60U
 #define BM_AUDIO_FRAME_SAMPLES (BM_AUDIO_HZ / 1000U * BM_AUDIO_FRAME_MS)   // 960
 
-// level: peak of the frame, 0..100.
-typedef void (*bm_audio_frame_cb_t)(const uint8_t *opus, size_t len, uint8_t level, void *ctx);
+// level: bm_meter_level_from_peak of the frame; clip: peak >= BM_AUDIO_CLIP_PEAK.
+typedef void (*bm_audio_frame_cb_t)(const uint8_t *opus, size_t len, uint8_t level, bool clip, void *ctx);
 
 typedef struct {
     uint32_t frames_encoded;
@@ -28,6 +29,7 @@ typedef struct {
     uint64_t encode_us_sum;   // per turn; average = sum / frames_encoded
     uint32_t wake_ms;        // codec wake + format time of the last capture start
     uint32_t stack_free;     // task stack high-water mark (bytes still free)
+    uint32_t clip_frames;    // per turn: frames whose peak reached BM_AUDIO_CLIP_PEAK
 } bm_audio_stats_t;
 
 esp_err_t bm_audio_init(bm_audio_frame_cb_t cb, void *ctx);
@@ -38,4 +40,6 @@ esp_err_t bm_audio_begin(void);
 // delivered before returning (waits up to ~300 ms); without it the tail is dropped.
 void bm_audio_end(bool flush_tail);
 bool bm_audio_active(void);
+// Microphone gain in dB (0..42, 6 dB steps); applied now or at the next capture.
+void bm_audio_set_mic_gain(int db);
 void bm_audio_get_stats(bm_audio_stats_t *out);

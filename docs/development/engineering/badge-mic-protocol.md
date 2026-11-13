@@ -65,11 +65,12 @@ Device, as an `EVENT` after subscription:
 
 ```json
 {"ev":"hello","proto":1,"fw":"0.1.0","model":"Passport-3A2B",
- "caps":["opus","put","display"],
+ "caps":["opus","put","display","audio"],
  "page":{"w":240,"h":320,"fmt":"rgb565le","count":2},
  "battery":87,
  "display":{"mode":"auto","dim_s":30,"off_s":120,"sleep_min":30,"brightness":80,"dim_brightness":20,
-            "off_key":"none"}}
+            "off_key":"none"},
+ "audio":{"mic_gain_db":24}}
 ```
 
 Mac, as a `CONTROL` once it has seen the device hello:
@@ -109,6 +110,18 @@ After `ptt_end` the device shows a "sent" confirmation for 800 ms, then returns 
 the badge page that was showing before the turn. If OK reaches 300 ms while the
 link is not ready, the device shows "not connected" for 1.5 s, sends nothing, and
 returns to the badge.
+
+`ptt_end` also carries a `stats` object for diagnostics (all fields optional; the
+Mac logs them and must ignore unknown ones):
+
+```json
+"stats":{"enc_first_us":41000,"enc_avg_us":18000,"enc_max_us":52000,
+         "stack_free":7800,"read_err":0,"clip":3}
+```
+
+`enc_*_us` are Opus encode times per 60 ms frame (first frame, average, maximum),
+`stack_free` is the encoder task's free stack in bytes, `read_err` counts failed
+microphone reads, and `clip` counts frames whose peak reached full scale (≥ 32000).
 
 `id` increments per turn. The Mac must release the dictation hotkey on
 `ptt_end`, on disconnect, and when no audio or event has arrived for 2 s during a
@@ -157,6 +170,20 @@ After an `off_key` press the screen stays off, also in `always_on`, until the ne
 key press (which only wakes the screen, as above) or a PTT turn / page upload. The
 deep-sleep timer keeps counting from the last activity. An unknown `off_key` value
 makes the whole `set_display` fail with `bad_args`.
+
+## Microphone gain
+
+```json
+{"cmd":"set_audio","mic_gain_db":24}
+```
+
+`mic_gain_db` is the ES8311 microphone gain: 0–42 in 6 dB steps (other values are
+rounded down to a step, out-of-range values clamped), default 24. The device
+persists it, applies it from the next capture, includes it in `hello` as
+`"audio":{"mic_gain_db":N}`, and reports every change as
+`{"ev":"audio","mic_gain_db":N}`. A missing or non-integer `mic_gain_db` is `bad_args`.
+
+During a turn the device's level meter turns red for 300 ms whenever a frame clips.
 
 ## Badge page upload
 

@@ -27,7 +27,8 @@ void bm_ui_set_link(bm_ui_link_t state);
 void bm_ui_show_passkey(uint32_t passkey);    // full-screen pairing code
 void bm_ui_hide_passkey(void);
 void bm_ui_show_banner(bm_banner_kind_t kind);  // BM_BANNER_NONE returns to the badge
-void bm_ui_set_level(uint8_t level_0_100);
+// clip: draw the meter red (the caller holds it for BM_CLIP_HOLD_MS).
+void bm_ui_set_level(uint8_t level_0_100, bool clip);
 void bm_ui_set_status(const char *text);      // small bottom pill; NULL hides
 // Panel + backlight. panel_on=false blanks the panel (DISPOFF) and turns the backlight
 // off; wake order is panel first, backlight second.

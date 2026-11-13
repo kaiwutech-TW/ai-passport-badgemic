@@ -57,11 +57,12 @@ Shinku-Chen 以 MIT 许可发布的 Pocket Intercom 协议（`Shinku-Chen/ai-pas
 
 ```json
 {"ev":"hello","proto":1,"fw":"0.1.0","model":"Passport-3A2B",
- "caps":["opus","put","display"],
+ "caps":["opus","put","display","audio"],
  "page":{"w":240,"h":320,"fmt":"rgb565le","count":2},
  "battery":87,
  "display":{"mode":"auto","dim_s":30,"off_s":120,"sleep_min":30,"brightness":80,"dim_brightness":20,
-            "off_key":"none"}}
+            "off_key":"none"},
+ "audio":{"mic_gain_db":24}}
 ```
 
 Mac 看到设备 hello 后以 `CONTROL` 发送：
@@ -92,6 +93,16 @@ Mac 看到设备 hello 后以 `CONTROL` 发送：
 
 `ptt_end` 之后设备显示「已送出」确认 800 ms，再回到本轮开始前显示的名牌页。若 OK 按满
 300 ms 时链路未就绪，设备显示「未连接」1.5 s，不发送任何内容，然后回到名牌。
+
+`ptt_end` 另带诊断用的 `stats` 对象(字段均可选;Mac 记录日志,并须忽略不认识的字段):
+
+```json
+"stats":{"enc_first_us":41000,"enc_avg_us":18000,"enc_max_us":52000,
+         "stack_free":7800,"read_err":0,"clip":3}
+```
+
+`enc_*_us` 是每个 60 ms 帧的 Opus 编码耗时(首帧、平均、最大),`stack_free` 是编码任务剩余栈字节数,
+`read_err` 是麦克风读取失败次数,`clip` 是峰值达到满幅(≥ 32000)的帧数。
 
 `id` 每轮递增。Mac 必须在 `ptt_end`、断开连接、以及本轮中 2 s 内没有任何音频或事件到达时
 松开听写快捷键，确保按键永远不会卡在按下状态。
@@ -135,6 +146,18 @@ Mac 可在快捷键已按住且虚拟麦克风开始接收后回复 `{"cmd":"ptt
 按下 `off_key` 后屏幕保持熄灭（`always_on` 下也一样），直到下一次按键（如上所述只点亮屏幕）
 或开始按住说话 / 页面上传。深睡计时仍从最后一次活动起算。`off_key` 值无法识别时整条
 `set_display` 以 `bad_args` 失败。
+
+## 麦克风增益
+
+```json
+{"cmd":"set_audio","mic_gain_db":24}
+```
+
+`mic_gain_db` 是 ES8311 麦克风增益:0–42,以 6 dB 为一级(其他值向下取到一级,超出范围则夹住),默认 24。
+设备持久保存,从下一次采集起生效,在 `hello` 中以 `"audio":{"mic_gain_db":N}` 附带,并在每次变化时上报
+`{"ev":"audio","mic_gain_db":N}`。缺少 `mic_gain_db` 或不是整数时回 `bad_args`。
+
+本轮说话期间,只要有帧削波,设备的音量条就变红 300 ms。
 
 ## 名牌页面上传
 

@@ -1,5 +1,7 @@
 #include "bm_cmd.h"
 
+#include "bm_meter.h"
+
 #include <ctype.h>
 #include <stdio.h>
 #include <string.h>
@@ -132,7 +134,7 @@ bool bm_cmd_parse(const uint8_t *json, size_t len, bm_cmd_t *out)
     if (c.p >= c.end || *c.p != '{') return false;
     c.p++;
 
-    val_t cmd = {0}, proto = {0}, id = {0}, page = {0}, size = {0}, crc = {0}, mode = {0}, off_key = {0};
+    val_t cmd = {0}, proto = {0}, id = {0}, page = {0}, size = {0}, crc = {0}, mode = {0}, off_key = {0}, gain = {0};
     val_t disp[5] = {{0}};  // dim_s, off_s, sleep_min, brightness, dim_brightness
     static const char *const disp_keys[5] = {"dim_s", "off_s", "sleep_min", "brightness", "dim_brightness"};
     bool closed = false;
@@ -156,6 +158,7 @@ bool bm_cmd_parse(const uint8_t *json, size_t len, bm_cmd_t *out)
         else if (!strcmp(key, "crc32")) crc = v;
         else if (!strcmp(key, "mode")) mode = v;
         else if (!strcmp(key, "off_key")) off_key = v;
+        else if (!strcmp(key, "mic_gain_db")) gain = v;
         else {
             for (int k = 0; k < 5; k++) if (!strcmp(key, disp_keys[k])) disp[k] = v;
         }
@@ -204,6 +207,10 @@ bool bm_cmd_parse(const uint8_t *json, size_t len, bm_cmd_t *out)
             p->mask |= bits[k];
             *dst[k] = disp[k].i;  // clamped by bm_display_cfg_apply
         }
+    } else if (!strcmp(cmd.str, "set_audio")) {
+        out->kind = BM_CMD_SET_AUDIO;
+        if (gain.type == V_INT) out->mic_gain_db = bm_mic_gain_normalize(gain.i);
+        else out->bad_args = true;
     } else if (!strcmp(cmd.str, "put_begin")) {
         out->kind = BM_CMD_PUT_BEGIN;
         int64_t pg = 0, sz = 0, cr = 0;
@@ -238,16 +245,16 @@ static size_t cfg_fields(char *buf, size_t cap, const bm_display_cfg_t *c)
 }
 
 size_t bm_ev_hello(char *buf, size_t cap, const char *fw, const char *model, int page_count,
-                   int battery, const bm_display_cfg_t *cfg)
+                   int battery, const bm_display_cfg_t *cfg, int mic_gain_db)
 {
     char disp[160];
     if (!cfg_fields(disp, sizeof(disp), cfg)) return 0;
     int n = snprintf(buf, cap,
                      "{\"ev\":\"hello\",\"proto\":%u,\"fw\":\"%s\",\"model\":\"%s\","
-                     "\"caps\":[\"opus\",\"put\",\"display\"],"
+                     "\"caps\":[\"opus\",\"put\",\"display\",\"audio\"],"
                      "\"page\":{\"w\":240,\"h\":320,\"fmt\":\"rgb565le\",\"count\":%d},"
-                     "\"battery\":%d,\"display\":{%s}}",
-                     (unsigned)1, fw, model, page_count, battery, disp);
+                     "\"battery\":%d,\"display\":{%s},\"audio\":{\"mic_gain_db\":%d}}",
+                     (unsigned)1, fw, model, page_count, battery, disp, mic_gain_db);
     return finish(n, cap);
 }
 
@@ -257,17 +264,25 @@ size_t bm_ev_ptt_start(char *buf, size_t cap, uint32_t id)
 }
 
 size_t bm_ev_ptt_end(char *buf, size_t cap, uint32_t id, uint32_t frames, uint32_t dropped,
-                     const char *reason)
+                     const char *reason, const bm_turn_stats_t *st)
 {
-    int n;
-    if (reason) {
-        n = snprintf(buf, cap, "{\"ev\":\"ptt_end\",\"id\":%u,\"frames\":%u,\"dropped\":%u,\"reason\":\"%s\"}",
-                     (unsigned)id, (unsigned)frames, (unsigned)dropped, reason);
-    } else {
-        n = snprintf(buf, cap, "{\"ev\":\"ptt_end\",\"id\":%u,\"frames\":%u,\"dropped\":%u}",
-                     (unsigned)id, (unsigned)frames, (unsigned)dropped);
+    char rs[32] = "", ss[200] = "";
+    if (reason) snprintf(rs, sizeof(rs), ",\"reason\":\"%s\"", reason);
+    if (st) {
+        snprintf(ss, sizeof(ss),
+                 ",\"stats\":{\"enc_first_us\":%u,\"enc_avg_us\":%u,\"enc_max_us\":%u,"
+                 "\"stack_free\":%u,\"read_err\":%u,\"clip\":%u}",
+                 (unsigned)st->enc_first_us, (unsigned)st->enc_avg_us, (unsigned)st->enc_max_us,
+                 (unsigned)st->stack_free, (unsigned)st->read_err, (unsigned)st->clip);
     }
+    int n = snprintf(buf, cap, "{\"ev\":\"ptt_end\",\"id\":%u,\"frames\":%u,\"dropped\":%u%s%s}",
+                     (unsigned)id, (unsigned)frames, (unsigned)dropped, rs, ss);
     return finish(n, cap);
+}
+
+size_t bm_ev_audio(char *buf, size_t cap, int mic_gain_db)
+{
+    return finish(snprintf(buf, cap, "{\"ev\":\"audio\",\"mic_gain_db\":%d}", mic_gain_db), cap);
 }
 
 size_t bm_ev_key(char *buf, size_t cap, bool up, bool long_press)

@@ -33,3 +33,6 @@ esp_err_t bm_store_clear_page(int page);
 
 void bm_store_load_display(bm_display_cfg_t *cfg);
 esp_err_t bm_store_save_display(const bm_display_cfg_t *cfg);
+// Microphone gain in dB; BM_MIC_GAIN_DEFAULT when nothing is stored.
+int bm_store_load_mic_gain(void);
+esp_err_t bm_store_save_mic_gain(int db);

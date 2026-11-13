@@ -76,8 +76,9 @@ static void encode_and_emit(bool pad)
     s_a.stats.frames_encoded++;
     s_a.stats.encode_us_sum += dt;
     if (dt > s_a.stats.encode_us_max) s_a.stats.encode_us_max = dt;
-    int level = peak * 100 / 16384;
-    if (s_a.cb) s_a.cb(s_a.opus_buf, (size_t)n, (uint8_t)(level > 100 ? 100 : level), s_a.ctx);
+    bool clip = peak >= BM_AUDIO_CLIP_PEAK;
+    if (clip) s_a.stats.clip_frames++;
+    if (s_a.cb) s_a.cb(s_a.opus_buf, (size_t)n, bm_meter_level_from_peak(peak), clip, s_a.ctx);
 }
 
 static void audio_task(void *arg)
@@ -177,6 +178,7 @@ esp_err_t bm_audio_begin(void)
     s_a.stats.encode_us_max = 0;
     s_a.stats.encode_us_first = 0;
     s_a.stats.encode_us_sum = 0;
+    s_a.stats.clip_frames = 0;
     s_a.flush_tail = false;
     s_a.turn_requested = true;
     return ESP_OK;
@@ -193,6 +195,12 @@ void bm_audio_end(bool flush_tail)
     if (was_collecting && xSemaphoreTake(s_a.done_sem, pdMS_TO_TICKS(BM_AUDIO_END_TIMEOUT_MS)) != pdTRUE) {
         ESP_LOGW(TAG, "capture did not stop within %u ms", (unsigned)BM_AUDIO_END_TIMEOUT_MS);
     }
+}
+
+void bm_audio_set_mic_gain(int db)
+{
+    if (bsp_audio_set_mic_gain((float)db) != ESP_OK) ESP_LOGW(TAG, "set mic gain %d dB failed", db);
+    else ESP_LOGI(TAG, "mic gain %d dB", db);
 }
 
 bool bm_audio_active(void)

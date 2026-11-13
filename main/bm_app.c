@@ -58,6 +58,8 @@ static QueueHandle_t s_queue;
 static SemaphoreHandle_t s_ring_mx;
 static bm_ring_t s_ring;
 static volatile uint8_t s_level;
+static volatile uint32_t s_clip_ms;     // time of the last clipped frame (0 = none this turn)
+static int s_mic_gain_db = BM_MIC_GAIN_DEFAULT;
 
 static bm_input_t s_input;
 static bm_ptt_t s_ptt;
@@ -118,7 +120,7 @@ static void send_hello(void)
 {
     char b[BM_JSON_PAYLOAD_MAX];
     send_event(b, bm_ev_hello(b, sizeof(b), BM_FW_VERSION, bm_link_device_name(), BM_PAGE_COUNT,
-                              s_battery, &s_power.cfg));
+                              s_battery, &s_power.cfg, s_mic_gain_db));
 }
 
 static void send_display(void)
@@ -187,10 +189,11 @@ static void cycle_page(void)
 }
 
 // ---- audio ----
-static void on_audio_frame(const uint8_t *opus, size_t len, uint8_t level, void *ctx)
+static void on_audio_frame(const uint8_t *opus, size_t len, uint8_t level, bool clip, void *ctx)
 {
     (void)ctx;
     s_level = level;
+    if (clip) s_clip_ms = now_ms() | 1u;   // never 0
     xSemaphoreTake(s_ring_mx, portMAX_DELAY);
     bm_ring_push(&s_ring, opus, len);
     xSemaphoreGive(s_ring_mx);
@@ -243,14 +246,17 @@ static void end_turn(bm_ptt_reason_t reason)
     bm_audio_get_stats(&st);
     unsigned enc_avg = st.frames_encoded ? (unsigned)(st.encode_us_sum / st.frames_encoded) : 0;
     ESP_LOGI(TAG, "turn %u end: frames=%u dropped=%u reason=%d enc_first=%uus enc_avg=%uus enc_max=%uus "
-             "read_err=%u stack_free=%u tx_drops=%u",
+             "read_err=%u clip=%u stack_free=%u tx_drops=%u",
              (unsigned)s_ptt.id, (unsigned)s_ptt.frames, (unsigned)dropped, (int)reason,
              (unsigned)st.encode_us_first, enc_avg, (unsigned)st.encode_us_max, (unsigned)st.read_errors,
-             (unsigned)st.stack_free, (unsigned)bm_link_tx_drop_count());
+             (unsigned)st.clip_frames, (unsigned)st.stack_free, (unsigned)bm_link_tx_drop_count());
     if (can_send) {
         char b[BM_JSON_PAYLOAD_MAX];
         const char *r = reason == BM_PTT_REASON_TIMEOUT ? "timeout" : NULL;
-        send_event(b, bm_ev_ptt_end(b, sizeof(b), s_ptt.id, s_ptt.frames, dropped, r));
+        bm_turn_stats_t ts = {.enc_first_us = st.encode_us_first, .enc_avg_us = enc_avg,
+                              .enc_max_us = st.encode_us_max, .stack_free = st.stack_free,
+                              .read_err = st.read_errors, .clip = st.clip_frames};
+        send_event(b, bm_ev_ptt_end(b, sizeof(b), s_ptt.id, s_ptt.frames, dropped, r, &ts));
         set_banner(BM_BANNER_SENT);
     } else {
         set_banner(BM_BANNER_NONE);
@@ -290,6 +296,7 @@ static void run_ptt(bm_ptt_out_t out)
         bm_tx_begin(&s_tx, now_ms());
         char b[BM_JSON_PAYLOAD_MAX];
         send_event(b, bm_ev_ptt_start(b, sizeof(b), s_ptt.id));
+        s_clip_ms = 0;
         set_banner(BM_BANNER_CAPTURING);
         drain_ring();                          // pre-roll first, then live frames
         break;
@@ -407,6 +414,15 @@ static void handle_control(const uint8_t *payload, size_t len)
             set_banner(BM_BANNER_LIVE);
         }
         break;
+    case BM_CMD_SET_AUDIO: {
+        s_mic_gain_db = c.mic_gain_db;
+        bm_audio_set_mic_gain(s_mic_gain_db);
+        esp_err_t e = bm_store_save_mic_gain(s_mic_gain_db);
+        if (e != ESP_OK) ESP_LOGW(TAG, "saving mic gain failed: %s", esp_err_to_name(e));
+        char b[BM_JSON_PAYLOAD_MAX];
+        send_event(b, bm_ev_audio(b, sizeof(b), s_mic_gain_db));
+        break;
+    }
     case BM_CMD_SET_DISPLAY: {
         bm_display_cfg_t cfg = s_power.cfg;
         bm_display_cfg_apply(&cfg, &c.patch);
@@ -615,7 +631,8 @@ static void periodic(void)
     if (bm_banner_tick(&s_banner, now)) bm_ui_show_banner(BM_BANNER_NONE);
     if ((s_banner.kind == BM_BANNER_CAPTURING || s_banner.kind == BM_BANNER_LIVE) && now - s_level_ms >= 80) {
         s_level_ms = now;
-        bm_ui_set_level(s_level);
+        bool red = s_clip_ms != 0 && now - s_clip_ms < BM_CLIP_HOLD_MS;
+        bm_ui_set_level(s_level, red);
     }
 
     if (bm_upload_check_stall(&s_upload, now)) {
@@ -685,6 +702,8 @@ esp_err_t bm_app_start(void)
 
     // Microphone and Opus first, while a large contiguous heap block still exists.
     if (bm_audio_init(on_audio_frame, NULL) != ESP_OK) ESP_LOGE(TAG, "audio init failed: PTT unavailable");
+    s_mic_gain_db = bm_store_load_mic_gain();
+    bm_audio_set_mic_gain(s_mic_gain_db);
     log_heap("after-audio");
 
     if (bm_link_init(on_link_event, NULL) != ESP_OK) return ESP_FAIL;

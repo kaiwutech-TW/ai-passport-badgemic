@@ -74,7 +74,7 @@ run_static_checks() {
         -o "${test_dir}/test_bm_proto"
     "${test_dir}/test_bm_proto"
     "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Imain \
-        tests/test_bm_cmd.c main/bm_cmd.c main/bm_power.c \
+        tests/test_bm_cmd.c main/bm_cmd.c main/bm_power.c main/bm_meter.c -lm \
         -o "${test_dir}/test_bm_cmd"
     "${test_dir}/test_bm_cmd"
     "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Imain \

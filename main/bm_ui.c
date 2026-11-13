@@ -271,6 +271,14 @@ void bm_ui_hide_passkey(void)
     bsp_lvgl_unlock();
 }
 
+static bool s_meter_red;
+
+static void meter_color(bool red)
+{
+    s_meter_red = red;
+    lv_obj_set_style_bg_color(s_ui.ban_bar, lv_color_hex(red ? 0xFF3B30 : 0xFFFFFF), LV_PART_INDICATOR);
+}
+
 void bm_ui_show_banner(bm_banner_kind_t kind)
 {
     if (!bsp_lvgl_lock(LOCK_MS)) return;
@@ -292,6 +300,7 @@ void bm_ui_show_banner(bm_banner_kind_t kind)
         lv_label_set_text(s_ui.ban_title, kind == BM_BANNER_LIVE ? "LIVE" : "CAPTURING");
         lv_label_set_text(s_ui.ban_sub, kind == BM_BANNER_LIVE ? "Speak now" : "Waiting for your Mac");
         lv_bar_set_value(s_ui.ban_bar, 0, LV_ANIM_OFF);
+        if (kind == BM_BANNER_CAPTURING && s_meter_red) meter_color(false);   // new turn starts white
     } else {
         lv_obj_set_hidden(s_ui.ban_mic, true);
         lv_obj_set_hidden(s_ui.ban_ring, true);
@@ -308,10 +317,13 @@ void bm_ui_show_banner(bm_banner_kind_t kind)
     bsp_lvgl_unlock();
 }
 
-void bm_ui_set_level(uint8_t level)
+void bm_ui_set_level(uint8_t level, bool clip)
 {
     if (!bsp_lvgl_lock(50)) return;
-    if (!lv_obj_is_hidden(s_ui.banner)) lv_bar_set_value(s_ui.ban_bar, level, LV_ANIM_ON);
+    if (!lv_obj_is_hidden(s_ui.banner)) {
+        if (clip != s_meter_red) meter_color(clip);   // restyle only on change
+        lv_bar_set_value(s_ui.ban_bar, level, LV_ANIM_ON);
+    }
     bsp_lvgl_unlock();
 }
 

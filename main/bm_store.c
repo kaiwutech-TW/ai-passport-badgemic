@@ -1,6 +1,8 @@
 // main/bm_store.c - see bm_store.h.
 #include "bm_store.h"
 
+#include "bm_meter.h"
+
 #include <stddef.h>
 
 #include <string.h>
@@ -169,6 +171,28 @@ esp_err_t bm_store_save_display(const bm_display_cfg_t *cfg)
     esp_err_t e = nvs_open(NS, NVS_READWRITE, &h);
     if (e != ESP_OK) return e;
     e = nvs_set_blob(h, "disp", cfg, sizeof(*cfg));
+    if (e == ESP_OK) e = nvs_commit(h);
+    nvs_close(h);
+    return e;
+}
+
+int bm_store_load_mic_gain(void)
+{
+    int db = BM_MIC_GAIN_DEFAULT;
+    nvs_handle_t h;
+    if (nvs_open(NS, NVS_READONLY, &h) != ESP_OK) return db;
+    uint8_t v;
+    if (nvs_get_u8(h, "mic_gain", &v) == ESP_OK) db = bm_mic_gain_normalize(v);
+    nvs_close(h);
+    return db;
+}
+
+esp_err_t bm_store_save_mic_gain(int db)
+{
+    nvs_handle_t h;
+    esp_err_t e = nvs_open(NS, NVS_READWRITE, &h);
+    if (e != ESP_OK) return e;
+    e = nvs_set_u8(h, "mic_gain", (uint8_t)bm_mic_gain_normalize(db));
     if (e == ESP_OK) e = nvs_commit(h);
     nvs_close(h);
     return e;
