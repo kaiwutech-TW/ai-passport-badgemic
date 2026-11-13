@@ -16,6 +16,26 @@ struct TurnStats: Equatable {
     var deviceFrames: Int?
     var deviceDropped: Int?
     var endReason: String = "進行中"
+    var device: PttStats?
+
+    /// "首/均/最大 41/18/52 ms" style summary of the device's encode timings, nil when none reported.
+    var encodeText: String? {
+        guard let d = device, d.encFirstUs != nil || d.encAvgUs != nil || d.encMaxUs != nil else { return nil }
+        func ms(_ v: Int?) -> String { v.map { String(Int((Double($0) / 1000).rounded())) } ?? "—" }
+        return "首/均/最大 \(ms(d.encFirstUs))/\(ms(d.encAvgUs))/\(ms(d.encMaxUs)) ms"
+    }
+
+    /// One log line for a finished turn (only the fields that are known).
+    func summaryLine(turn n: Int) -> String {
+        var parts: [String] = []
+        if let f = deviceFrames { parts.append("幀 \(f)") }
+        if let d = deviceDropped { parts.append("遺失 \(d)") }
+        if let e = encodeText { parts.append("編碼 \(e)") }
+        if let s = device?.stackFree { parts.append("堆疊餘 \(s) B") }
+        if let r = device?.readErr, r > 0 { parts.append("讀取錯誤 \(r)") }
+        if let c = device?.clip { parts.append("爆音 \(c) 幀") }
+        return "第 \(n) 輪:" + parts.joined(separator: "、")
+    }
 }
 
 enum UploadError: Error, LocalizedError {
@@ -48,6 +68,8 @@ final class AppModel: ObservableObject {
     @Published var deviceDisplay = DisplaySettings.defaults
     @Published var displayDraft = DisplaySettings.defaults
     @Published var displayError: String?
+    /// Device microphone gain in dB; nil until a hello/audio event reports it (nil = firmware without `audio`).
+    @Published var deviceMicGainDb: Int?
     @Published var lastTurn: TurnStats?
     @Published var turnActive = false
     /// True when the last turn found no virtual mic and audio was refused (never falls back to speakers).
@@ -240,6 +262,7 @@ final class AppModel: ObservableObject {
                 deviceDisplay = DisplaySettings.defaults.merged(with: d)
                 displayDraft = deviceDisplay
             }
+            deviceMicGainDb = h.micGainDb
             protoMismatch = h.proto != supportedProtocolVersion
             if protoMismatch { addLog("協定版本不符:裝置 \(h.proto)、App \(supportedProtocolVersion)。已停用收音。") }
             ready = true
@@ -247,10 +270,17 @@ final class AppModel: ObservableObject {
         case .pttStart(let id):
             guard ready, !protoMismatch else { addLog("忽略 ptt_start(未就緒或版本不符)"); return }
             beginTurn(id: id)
-        case .pttEnd(let id, let frames, let dropped, let reason):
+        case .audio(let g):
+            deviceMicGainDb = g
+        case .pttEnd(let id, let frames, let dropped, let reason, let stats):
             currentStats?.deviceFrames = frames
             currentStats?.deviceDropped = dropped
             currentStats?.endReason = reason ?? "正常"
+            currentStats?.device = stats
+            if let st = currentStats {
+                addLog(st.summaryLine(turn: id))
+                if let c = stats?.clip, c > 0 { addLog("收音偏大聲,可到「裝置」分頁調低收音增益") }
+            }
             lastTurn = currentStats
             pttInput(.pttEnd(id: id))
         case .key(let key, let gesture):
@@ -387,6 +417,12 @@ final class AppModel: ObservableObject {
         guard ready else { addLog("名牌未連線:無法設定長按關螢幕"); return }
         displayDraft.offKey = key
         send(.setDisplay(DisplaySettings(offKey: key)))
+    }
+
+    /// Sets the device microphone gain (only when connected and the firmware supports it).
+    func setMicGain(_ db: Int) {
+        guard ready, deviceMicGainDb != nil else { addLog("名牌未連線或韌體不支援:無法設定收音增益"); return }
+        send(.setAudio(micGainDb: db))
     }
 
     func setDisplayMode(_ mode: DisplayMode) {

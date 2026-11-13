@@ -9,6 +9,40 @@ public struct PageInfo: Codable, Equatable, Sendable {
     public var count: Int
 }
 
+/// Diagnostics attached to `ptt_end` (all fields optional; unknown keys are ignored).
+public struct PttStats: Codable, Equatable, Sendable {
+    public var encFirstUs: Int?
+    public var encAvgUs: Int?
+    public var encMaxUs: Int?
+    public var stackFree: Int?
+    public var readErr: Int?
+    public var clip: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case encFirstUs = "enc_first_us", encAvgUs = "enc_avg_us", encMaxUs = "enc_max_us"
+        case stackFree = "stack_free", readErr = "read_err", clip
+    }
+
+    public init(encFirstUs: Int? = nil, encAvgUs: Int? = nil, encMaxUs: Int? = nil,
+                stackFree: Int? = nil, readErr: Int? = nil, clip: Int? = nil) {
+        self.encFirstUs = encFirstUs; self.encAvgUs = encAvgUs; self.encMaxUs = encMaxUs
+        self.stackFree = stackFree; self.readErr = readErr; self.clip = clip
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        // A wrongly typed field is treated as absent rather than failing the whole event.
+        encFirstUs = try? c.decodeIfPresent(Int.self, forKey: .encFirstUs)
+        encAvgUs = try? c.decodeIfPresent(Int.self, forKey: .encAvgUs)
+        encMaxUs = try? c.decodeIfPresent(Int.self, forKey: .encMaxUs)
+        stackFree = try? c.decodeIfPresent(Int.self, forKey: .stackFree)
+        readErr = try? c.decodeIfPresent(Int.self, forKey: .readErr)
+        clip = try? c.decodeIfPresent(Int.self, forKey: .clip)
+    }
+}
+
+public let micGainStepsDb = [0, 6, 12, 18, 24, 30, 36, 42]
+
 public struct HelloInfo: Equatable, Sendable {
     public var proto: Int
     public var fw: String
@@ -17,6 +51,8 @@ public struct HelloInfo: Equatable, Sendable {
     public var page: PageInfo?
     public var battery: Int
     public var display: DisplaySettings?
+    /// nil when the firmware has no `audio` object (older firmware).
+    public var micGainDb: Int?
 }
 
 public enum KeyName: String, Codable, Sendable { case up, down }
@@ -26,7 +62,8 @@ public enum KeyGesture: String, Codable, Sendable { case click, long }
 public enum DeviceEvent: Equatable, Sendable {
     case hello(HelloInfo)
     case pttStart(id: Int)
-    case pttEnd(id: Int, frames: Int, dropped: Int, reason: String?)
+    case pttEnd(id: Int, frames: Int, dropped: Int, reason: String?, stats: PttStats? = nil)
+    case audio(micGainDb: Int)
     case key(KeyName, KeyGesture)
     case display(DisplaySettings)
     case putReady(page: Int)
@@ -42,13 +79,16 @@ public enum DeviceEvent: Equatable, Sendable {
         case "hello":
             return .hello(HelloInfo(proto: raw.proto ?? 0, fw: raw.fw ?? "?", model: raw.model ?? "?",
                                     caps: raw.caps ?? [], page: raw.page, battery: raw.battery ?? -1,
-                                    display: raw.display))
+                                    display: raw.display, micGainDb: raw.audio?.mic_gain_db))
         case "ptt_start":
             guard let id = raw.id else { return nil }
             return .pttStart(id: id)
         case "ptt_end":
             guard let id = raw.id else { return nil }
-            return .pttEnd(id: id, frames: raw.frames ?? 0, dropped: raw.dropped ?? 0, reason: raw.reason)
+            return .pttEnd(id: id, frames: raw.frames ?? 0, dropped: raw.dropped ?? 0, reason: raw.reason, stats: raw.stats)
+        case "audio":
+            guard let g = raw.mic_gain_db else { return nil }
+            return .audio(micGainDb: g)
         case "key":
             guard let k = raw.key.flatMap(KeyName.init), let g = raw.gesture.flatMap(KeyGesture.init) else { return nil }
             return .key(k, g)
@@ -88,9 +128,21 @@ public enum DeviceEvent: Equatable, Sendable {
         var ok: Bool?
         var err: String?
         var cmd: String?
+        var stats: PttStats?
+        var audio: AudioObj?
+        var mic_gain_db: Int?
+
+        struct AudioObj: Decodable {
+            var mic_gain_db: Int?
+            init(from decoder: Decoder) throws {
+                let c = try decoder.container(keyedBy: K.self)
+                mic_gain_db = try? c.decodeIfPresent(Int.self, forKey: .mic_gain_db)
+            }
+            enum K: String, CodingKey { case mic_gain_db }
+        }
 
         enum CodingKeys: String, CodingKey {
-            case ev, proto, fw, model, caps, page, battery, display, id, frames, dropped, reason, key, gesture, ok, err, cmd
+            case ev, proto, fw, model, caps, page, battery, display, id, frames, dropped, reason, key, gesture, ok, err, cmd, stats, audio, mic_gain_db
         }
 
         init(from decoder: Decoder) throws {
@@ -114,6 +166,9 @@ public enum DeviceEvent: Equatable, Sendable {
             ok = try? c.decodeIfPresent(Bool.self, forKey: .ok)
             err = try? c.decodeIfPresent(String.self, forKey: .err)
             cmd = try? c.decodeIfPresent(String.self, forKey: .cmd)
+            stats = try? c.decodeIfPresent(PttStats.self, forKey: .stats)
+            audio = try? c.decodeIfPresent(AudioObj.self, forKey: .audio)
+            mic_gain_db = try? c.decodeIfPresent(Int.self, forKey: .mic_gain_db)
         }
     }
 }
@@ -135,6 +190,8 @@ public struct ControlCommand: Codable, Equatable, Sendable {
     public var sleep_min: Int?
     public var brightness: Int?
     public var dim_brightness: Int?
+    // set_audio field
+    public var mic_gain_db: Int?
 
     public init(cmd: String) { self.cmd = cmd }
 
@@ -154,6 +211,10 @@ public struct ControlCommand: Codable, Equatable, Sendable {
         c.mode = s.mode; c.dim_s = s.dimS; c.off_s = s.offS; c.sleep_min = s.sleepMin
         c.brightness = s.brightness; c.dim_brightness = s.dimBrightness
         return c
+    }
+
+    public static func setAudio(micGainDb: Int) -> ControlCommand {
+        var c = ControlCommand(cmd: "set_audio"); c.mic_gain_db = micGainDb; return c
     }
 
     public func jsonBytes() throws -> [UInt8] {

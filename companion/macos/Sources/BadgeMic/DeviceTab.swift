@@ -46,9 +46,15 @@ struct DeviceTab: View {
                             row("SEQ 缺口", "\(t.lostBySeq)")
                             row("裝置回報", "\(t.deviceFrames.map(String.init) ?? "—") 幀 / 丟 \(t.deviceDropped.map(String.init) ?? "—")")
                             row("結束", t.endReason)
+                            if let e = t.encodeText { row("編碼耗時", e) }
+                            if let st = t.device?.stackFree { row("堆疊餘", "\(st) B") }
+                            if let r = t.device?.readErr, r > 0 { row("讀取錯誤", "\(r)") }
+                            if let c = t.device?.clip { row("爆音", "\(c) 幀") }
                         } else { Text("尚無").foregroundStyle(.secondary) }
                     }.frame(maxWidth: .infinity, alignment: .leading).padding(6)
                 }
+
+                MicSection()
 
                 DisplaySection()
 
@@ -123,5 +129,29 @@ struct DisplaySection: View {
     private var sleepText: String {
         let v = intBinding(\.sleepMin, fallback: 30).wrappedValue
         return v == 0 ? "深度睡眠:永不" : "深度睡眠:閒置 \(v) 分鐘後"
+    }
+}
+
+/// Microphone gain on the badge (ES8311), 0-42 dB in 6 dB steps.
+struct MicSection: View {
+    @EnvironmentObject var model: AppModel
+
+    var body: some View {
+        GroupBox("麥克風") {
+            VStack(alignment: .leading, spacing: 8) {
+                if let g = model.deviceMicGainDb {
+                    Picker("收音增益", selection: Binding(get: { g }, set: { model.setMicGain($0) })) {
+                        ForEach(micGainStepsDb, id: \.self) { Text("\($0) dB").tag($0) }
+                        // Keep an unexpected device value selectable instead of showing a blank picker.
+                        if !micGainStepsDb.contains(g) { Text("\(g) dB").tag(g) }
+                    }
+                    .disabled(!model.ready)
+                    Text("說話太大聲會爆音(錄音畫面音量條變紅);太小聲辨識不到。預設 24 dB。")
+                        .font(.caption).foregroundStyle(.secondary)
+                } else {
+                    Text(model.hello == nil ? "尚未連線" : "此韌體不支援").foregroundStyle(.secondary)
+                }
+            }.frame(maxWidth: .infinity, alignment: .leading).padding(6)
+        }
     }
 }

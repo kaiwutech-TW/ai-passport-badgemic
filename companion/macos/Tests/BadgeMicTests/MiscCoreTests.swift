@@ -85,6 +85,30 @@ import Testing
         #expect(h.display?.mode == .alwaysOn)
     }
 
+    @Test func helloAudioPresentAndAbsent() {
+        let with = #"{"ev":"hello","proto":1,"fw":"x","model":"m","caps":["opus","audio"],"battery":50,"audio":{"mic_gain_db":24}}"#
+        guard case .hello(let h)? = DeviceEvent.parse(Array(with.utf8)) else { Issue.record("no hello"); return }
+        #expect(h.micGainDb == 24 && h.caps.contains("audio"))
+        let without = #"{"ev":"hello","proto":1,"fw":"x","model":"m","caps":["opus"],"battery":50}"#
+        guard case .hello(let o)? = DeviceEvent.parse(Array(without.utf8)) else { Issue.record("no hello"); return }
+        #expect(o.micGainDb == nil)
+    }
+
+    @Test func audioEvent() {
+        #expect(DeviceEvent.parse(Array(#"{"ev":"audio","mic_gain_db":30}"#.utf8)) == .audio(micGainDb: 30))
+        #expect(DeviceEvent.parse(Array(#"{"ev":"audio"}"#.utf8)) == nil)
+    }
+
+    @Test func pttEndStats() {
+        func p(_ s: String) -> DeviceEvent? { DeviceEvent.parse(Array(s.utf8)) }
+        #expect(p(#"{"ev":"ptt_end","id":2,"frames":5,"dropped":0}"#) == .pttEnd(id: 2, frames: 5, dropped: 0, reason: nil, stats: nil))
+        let full = #"{"ev":"ptt_end","id":2,"frames":5,"dropped":0,"stats":{"enc_first_us":41000,"enc_avg_us":18000,"enc_max_us":52000,"stack_free":7800,"read_err":0,"clip":3}}"#
+        #expect(p(full) == .pttEnd(id: 2, frames: 5, dropped: 0, reason: nil,
+                                   stats: PttStats(encFirstUs: 41000, encAvgUs: 18000, encMaxUs: 52000, stackFree: 7800, readErr: 0, clip: 3)))
+        let partial = #"{"ev":"ptt_end","id":2,"frames":5,"dropped":0,"stats":{"clip":1,"future_field":9,"nested":{"a":1}}}"#
+        #expect(p(partial) == .pttEnd(id: 2, frames: 5, dropped: 0, reason: nil, stats: PttStats(clip: 1)))
+    }
+
     @Test func parseEvents() {
         func p(_ s: String) -> DeviceEvent? { DeviceEvent.parse(Array(s.utf8)) }
         #expect(p(#"{"ev":"ptt_start","id":4}"#) == .pttStart(id: 4))
@@ -108,6 +132,7 @@ import Testing
         #expect(try s(.clearPage(1)) == #"{"cmd":"clear_page","page":1}"#)
         #expect(try s(.getHello()) == #"{"cmd":"get_hello"}"#)
         #expect(try s(.setDisplay(DisplaySettings(mode: .alwaysOn))) == #"{"cmd":"set_display","mode":"always_on"}"#)
+        #expect(try s(.setAudio(micGainDb: 24)) == #"{"cmd":"set_audio","mic_gain_db":24}"#)
         let f = try ControlCommand.pttAck(id: 1).frame()
         #expect(f[0] == 0xA5 && f[2] == 0x03)
     }

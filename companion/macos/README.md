@@ -62,7 +62,7 @@ quit (including SIGTERM/SIGINT).
 - Hold **OK** on the badge: audio streams to the Mac and the dictation tool types. A tap on OK switches the badge page.
 - **Buttons** tab: UP/DOWN click and long press actions.
 - **Badge** tab: edit fields, choose a photo, choose vCard or custom QR content, check the live preview, upload.
-- **Device** tab: connection, battery, firmware, last turn statistics, display settings (only changed fields are sent).
+- **Device** tab: connection, battery, firmware, last turn statistics, display settings (only changed fields are sent), microphone gain, and per-turn encoder/clipping diagnostics.
 
 ## License
 
