@@ -133,6 +133,9 @@ import Testing
         #expect(try s(.getHello()) == #"{"cmd":"get_hello"}"#)
         #expect(try s(.setDisplay(DisplaySettings(mode: .alwaysOn))) == #"{"cmd":"set_display","mode":"always_on"}"#)
         #expect(try s(.setAudio(micGainDb: 24)) == #"{"cmd":"set_audio","mic_gain_db":24}"#)
+        // regression: off_key was dropped from set_display, so the device got an empty command
+        #expect(try s(.setDisplay(DisplaySettings(offKey: .upLong))) == #"{"cmd":"set_display","off_key":"up_long"}"#)
+        #expect(try s(.setDisplay(DisplaySettings(offKey: OffKey.none))) == #"{"cmd":"set_display","off_key":"none"}"#)
         let f = try ControlCommand.pttAck(id: 1).frame()
         #expect(f[0] == 0xA5 && f[2] == 0x03)
     }

@@ -190,6 +190,7 @@ public struct ControlCommand: Codable, Equatable, Sendable {
     public var sleep_min: Int?
     public var brightness: Int?
     public var dim_brightness: Int?
+    public var off_key: OffKey?
     // set_audio field
     public var mic_gain_db: Int?
 
@@ -209,7 +210,7 @@ public struct ControlCommand: Codable, Equatable, Sendable {
     public static func setDisplay(_ s: DisplaySettings) -> ControlCommand {
         var c = ControlCommand(cmd: "set_display")
         c.mode = s.mode; c.dim_s = s.dimS; c.off_s = s.offS; c.sleep_min = s.sleepMin
-        c.brightness = s.brightness; c.dim_brightness = s.dimBrightness
+        c.brightness = s.brightness; c.dim_brightness = s.dimBrightness; c.off_key = s.offKey
         return c
     }
 
