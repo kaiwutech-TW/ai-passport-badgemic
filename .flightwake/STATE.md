@@ -30,6 +30,10 @@ health: green  # 真機端到端、自寫驅動、off_key、收音增益皆經�
       → 名牌在本機「忘記裝置」後到 Air 重新配對 → 辨識工具自己的麥克風設定選 BadgeMic Microphone(TRAPS parroting-own-mic-setting)。
       App 只有 arm64;Air 若是 Intel 要另做 x86_64
 
+- [x] 2026-11-13 公開:fork https://github.com/kaiwutech-TW/ai-passport-badgemic(本機 remote `origin`,`feature/badge-mic` 推到 `main`);
+      Release v0.1.0 附 DMG + 韌體(81da6a8)+ SHA256SUMS;三語 README;commit email 已改 GitHub noreply(改寫前備份在 `backup/pre-email-rewrite`)
+- [ ] 待使用者決定:展示網頁(GitHub Pages)、投稿上游社群作品(PR 到 FoloToy `docs/reference/<username>/`)
+
 # 下一步入口
 
 1. 讀每輪統計(App 記錄),確認 enc_max < 60 ms、stack_free 有餘裕
