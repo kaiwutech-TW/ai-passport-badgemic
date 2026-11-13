@@ -23,7 +23,8 @@ The wire contract is [`docs/development/engineering/badge-mic-protocol.md`](../.
 
 ```sh
 cd companion/macos
-./scripts/build-app.sh        # -> dist/BadgeMic.app (release, libopus bundled, signed)
+./scripts/build-app.sh        # -> dist/BadgeMic.app (release, libopus + virtual mic driver bundled, signed)
+./scripts/package.sh          # -> dist/BadgeMic-<version>.dmg (Developer ID, notarized and stapled)
 ./scripts/test.sh             # run the Swift Testing suite (retries a known CLT flake)
 swift build                   # plain debug build
 ```
@@ -32,7 +33,14 @@ Signing: the script signs with `$BADGEMIC_SIGN_IDENTITY` (a certificate SHA-1 ha
 first "Developer ID Application" identity, otherwise the first "Apple Development" identity (hardened runtime,
 entitlements in `scripts/BadgeMic.entitlements`). Only when none exists does it fall back to ad-hoc signing, where the
 designated requirement is the code hash and macOS forgets the Accessibility grant on every rebuild. Check with
-`codesign -d -r- dist/BadgeMic.app`; the app is not notarized, so `spctl` rejects it (expected for local use).
+`codesign -d -r- dist/BadgeMic.app`. A plain `build-app.sh` build is not notarized, so `spctl` rejects it.
+
+Distribution: `package.sh` needs a "Developer ID Application" identity and a notarytool keychain profile named
+`BadgeMic` (override with `$NOTARY_PROFILE`), created once with
+`xcrun notarytool store-credentials BadgeMic --apple-id <id> --team-id <team>` and an app-specific password.
+It notarizes and staples both the app and the DMG. libopus is built from source for macOS 14+ by
+`scripts/build-opus.sh` (Homebrew's bottle targets the build machine's macOS). The app installs the bundled
+driver itself (Dictation tab, administrator password). The binary is arm64 only.
 
 Tests use Swift Testing (XCTest is not available with Command Line Tools only). `test.sh`
 retries because under Command Line Tools `swift test` sometimes fails to locate the

@@ -74,6 +74,8 @@ final class AppModel: ObservableObject {
     @Published var turnActive = false
     /// True when the last turn found no virtual mic and audio was refused (never falls back to speakers).
     @Published var noVirtualMicWarning = false
+    @Published var driverInstalled = FileManager.default.fileExists(atPath: DriverInstall.installedPath)
+    @Published var driverInstalling = false
     @Published var log: [String] = []
 
     // MARK: Environment
@@ -144,6 +146,51 @@ final class AppModel: ObservableObject {
         accessibilityTrusted = KeyInjector.isTrusted(prompt: false)
         let devs = AudioDevices.outputDevices()
         if devs != outputDevices { outputDevices = devs }
+        let installed = FileManager.default.fileExists(atPath: DriverInstall.installedPath)
+        if installed != driverInstalled { driverInstalled = installed }
+    }
+
+    /// The driver shipped inside BadgeMic.app (Contents/Library/Audio).
+    var bundledDriverPath: String? {
+        let url = Bundle.main.bundleURL.appendingPathComponent("Contents/Library/Audio/\(DriverInstall.driverName)")
+        return FileManager.default.fileExists(atPath: url.path) ? url.path : nil
+    }
+
+    /// Installs (or reinstalls) the bundled driver after an administrator password prompt.
+    func installDriver() {
+        guard let src = bundledDriverPath else { addLog("這個 App 版本沒有內附虛擬麥克風驅動"); return }
+        guard !driverInstalling else { return }
+        driverInstalling = true
+        addLog("安裝虛擬麥克風:等待管理員密碼…(聲音會中斷一兩秒)")
+        let script = DriverInstall.appleScript(source: src, prompt: "BadgeMic 要安裝虛擬麥克風「BadgeMic Microphone」。")
+        Task.detached {
+            let p = Process()
+            p.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+            p.arguments = ["-e", script]
+            let err = Pipe()
+            p.standardError = err
+            var ok = false
+            var msg = ""
+            do {
+                try p.run()
+                p.waitUntilExit()
+                ok = p.terminationStatus == 0
+                msg = String(data: err.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+            } catch { msg = error.localizedDescription }
+            let result = (ok, msg)
+            await MainActor.run {
+                self.driverInstalling = false
+                if result.0 {
+                    self.addLog("虛擬麥克風已安裝。辨識工具的麥克風請選「BadgeMic Microphone」(有些工具有自己的麥克風設定)")
+                } else if result.1.contains("-128") {
+                    self.addLog("已取消安裝虛擬麥克風")
+                } else {
+                    self.addLog("安裝虛擬麥克風失敗:\(result.1.trimmingCharacters(in: .whitespacesAndNewlines))")
+                }
+                // coreaudiod needs a moment to publish the new device
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2) { self.refreshEnvironment() }
+            }
+        }
     }
 
     func requestAccessibility() { accessibilityTrusted = KeyInjector.isTrusted(prompt: true) }

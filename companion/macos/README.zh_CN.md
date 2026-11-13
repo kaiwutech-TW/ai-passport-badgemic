@@ -22,7 +22,8 @@
 
 ```sh
 cd companion/macos
-./scripts/build-app.sh        # -> dist/BadgeMic.app(release,内置 libopus,已签名)
+./scripts/build-app.sh        # -> dist/BadgeMic.app(release,内置 libopus 与虚拟麦克风驱动,已签名)
+./scripts/package.sh          # -> dist/BadgeMic-<版本>.dmg(Developer ID 签名、公证并 staple)
 ./scripts/test.sh             # 运行 Swift Testing 测试(遇到已知的 CLT 偶发问题会重试)
 swift build                   # 普通 debug 构建
 ```
@@ -30,7 +31,12 @@ swift build                   # 普通 debug 构建
 签名:脚本优先使用环境变量 `$BADGEMIC_SIGN_IDENTITY`(证书 SHA-1 哈希或名称),否则用第一个 "Developer ID Application"
 身份,再否则用第一个 "Apple Development" 身份(启用 hardened runtime,entitlements 见 `scripts/BadgeMic.entitlements`)。
 都没有才退回 ad-hoc 签名;ad-hoc 的 designated requirement 是代码哈希,每次重编后 macOS 会丢掉「辅助功能」授权。
-可用 `codesign -d -r- dist/BadgeMic.app` 检查;应用未公证,`spctl` 会拒绝,本机使用属正常。
+可用 `codesign -d -r- dist/BadgeMic.app` 检查。单纯 `build-app.sh` 的产物未公证,`spctl` 会拒绝。
+
+分发:`package.sh` 需要 "Developer ID Application" 身份,以及名为 `BadgeMic` 的 notarytool 钥匙串配置(可用
+`$NOTARY_PROFILE` 改名),用 App 专用密码执行一次 `xcrun notarytool store-credentials BadgeMic --apple-id <id> --team-id <team>` 建立。
+脚本会公证并 staple 应用与 DMG。libopus 由 `scripts/build-opus.sh` 从源码以 macOS 14+ 为目标构建(Homebrew 的版本以构建机的
+macOS 为目标)。应用会自行安装内置驱动(「听写」分页,需管理员密码)。二进制仅支持 arm64。
 
 测试使用 Swift Testing(仅有 Command Line Tools 时没有 XCTest)。`test.sh`
 会自动重试,因为在 Command Line Tools 下 `swift test` 偶尔会找不到 Swift Testing 的宏插件(非确定性,重试即可)。

@@ -25,6 +25,23 @@ struct DictationTab: View {
                     }.padding(6)
                 }
 
+                GroupBox("虛擬麥克風") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Image(systemName: model.driverInstalled ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                                .foregroundStyle(model.driverInstalled ? .green : .orange)
+                            Text(model.driverInstalled ? "BadgeMic Microphone:已安裝" : "BadgeMic Microphone:尚未安裝")
+                            Spacer()
+                            if model.bundledDriverPath != nil {
+                                Button(model.driverInstalled ? "重新安裝" : "安裝虛擬麥克風") { model.installDriver() }
+                                    .disabled(model.driverInstalling)
+                            }
+                        }
+                        Text("需要管理員密碼;安裝時 Mac 的聲音會中斷一兩秒。裝好後,辨識工具(學舌鳥、豆包…)的麥克風要選「BadgeMic Microphone」——有些工具有自己的麥克風設定,不跟系統設定。")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }.padding(6)
+                }
+
                 GroupBox("觸發設定檔") {
                     VStack(alignment: .leading, spacing: 10) {
                         Picker("目前使用", selection: $model.profiles.selectedID) {

@@ -17,8 +17,15 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Frameworks" "$APP/Contents/Resourc
 cp "$BIN_DIR/BadgeMic" "$APP/Contents/MacOS/BadgeMic"
 cp "$ROOT/Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
 
+# Bundle the virtual microphone driver (signed by its own build script with the same identity
+# order) so the app can install it with one click. Nested code lives under Contents/Library.
+"$ROOT/Driver/build.sh" >/dev/null
+mkdir -p "$APP/Contents/Library/Audio"
+cp -R "$ROOT/dist/BadgeMicAudio.driver" "$APP/Contents/Library/Audio/"
+
 # Bundle libopus so the app does not depend on Homebrew at run time.
-OPUS_LIB="$(readlink -f "$(brew --prefix opus)/lib/libopus.0.dylib")"
+# Bundle a libopus built for macOS 14+ (Homebrew's targets this Mac's macOS; see build-opus.sh).
+OPUS_LIB="$("$ROOT/scripts/build-opus.sh" | tail -1)"
 cp "$OPUS_LIB" "$APP/Contents/Frameworks/libopus.0.dylib"
 chmod u+w "$APP/Contents/Frameworks/libopus.0.dylib"
 install_name_tool -id "@rpath/libopus.0.dylib" "$APP/Contents/Frameworks/libopus.0.dylib"
@@ -64,6 +71,9 @@ find_identity() {  # $1 = certificate kind prefix
 }
 IDENTITY="${BADGEMIC_SIGN_IDENTITY:-}"
 KIND="custom"
+if [ -n "$IDENTITY" ] && security find-identity -v -p codesigning | grep -F "$IDENTITY" | grep -q '"Developer ID Application:'; then
+  KIND="developer-id"   # an explicit Developer ID still needs a secure timestamp for notarization
+fi
 if [ -z "$IDENTITY" ]; then
   IDENTITY="$(find_identity "Developer ID Application")"; KIND="developer-id"
 fi
