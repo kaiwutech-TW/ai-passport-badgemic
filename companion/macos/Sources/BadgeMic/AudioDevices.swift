@@ -1,3 +1,4 @@
+import BadgeMicCore
 import CoreAudio
 import Foundation
 
@@ -53,9 +54,13 @@ enum AudioDevices {
 
     static func device(uid: String) -> AudioDeviceInfo? { all().first { $0.uid == uid } }
 
-    /// First output device that looks like a virtual mic (BlackHole, Loopback...), used when no UID is set.
+    /// Best virtual-mic output device (BadgeMic driver first, then BlackHole etc.), used when no UID is set.
     static func guessVirtualMic() -> AudioDeviceInfo? {
-        outputDevices().first { $0.name.localizedCaseInsensitiveContains("blackhole") }
+        guessVirtualMic(in: outputDevices())
+    }
+
+    static func guessVirtualMic(in devices: [AudioDeviceInfo]) -> AudioDeviceInfo? {
+        VirtualMic.pick(devices.map { VirtualMic.Candidate(uid: $0.uid, name: $0.name) }).map { devices[$0] }
     }
 
     static func defaultInput() -> AudioDeviceID? {

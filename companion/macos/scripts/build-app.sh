@@ -54,9 +54,41 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
-# Ad-hoc signature (local use). Sign the dylib first, then the bundle.
-codesign --force --sign - "$APP/Contents/Frameworks/libopus.0.dylib"
-codesign --force --sign - --identifier "$BUNDLE_ID" "$APP"
-codesign --verify --verbose=1 "$APP"
+# Code signing. A stable identity keeps the designated requirement constant across rebuilds, so macOS
+# privacy grants (Accessibility/TCC) survive. Order: $BADGEMIC_SIGN_IDENTITY, first Developer ID Application,
+# first Apple Development, else ad-hoc. Identities are selected by SHA-1 hash, never by name.
+find_identity() {  # $1 = certificate kind prefix
+  security find-identity -v -p codesigning | awk -v k="$1" 'index($0, "\"" k ":") {print $2; exit}'
+}
+IDENTITY="${BADGEMIC_SIGN_IDENTITY:-}"
+KIND="custom"
+if [ -z "$IDENTITY" ]; then
+  IDENTITY="$(find_identity "Developer ID Application")"; KIND="developer-id"
+fi
+if [ -z "$IDENTITY" ]; then
+  IDENTITY="$(find_identity "Apple Development")"; KIND="apple-development"
+fi
+
+SIGN_OPTS=()
+if [ -n "$IDENTITY" ]; then
+  echo "Signing with identity ${IDENTITY} (${KIND})"
+  case "$KIND" in
+    developer-id) SIGN_OPTS=(--options runtime --timestamp) ;;
+    *) SIGN_OPTS=(--options runtime --timestamp=none) ;;
+  esac
+else
+  echo "WARNING: no signing identity found; using ad-hoc signing. Accessibility permission will need re-granting after every rebuild." >&2
+  IDENTITY="-"
+fi
+
+ENTITLEMENTS="$ROOT/scripts/BadgeMic.entitlements"
+ENT_OPTS=()
+if [ "$IDENTITY" != "-" ]; then ENT_OPTS=(--entitlements "$ENTITLEMENTS"); fi
+
+# Sign the dylib first, then the bundle.
+codesign --force --sign "$IDENTITY" ${SIGN_OPTS[@]+"${SIGN_OPTS[@]}"} "$APP/Contents/Frameworks/libopus.0.dylib"
+codesign --force --sign "$IDENTITY" ${SIGN_OPTS[@]+"${SIGN_OPTS[@]}"} ${ENT_OPTS[@]+"${ENT_OPTS[@]}"} \
+  --identifier "$BUNDLE_ID" "$APP"
+codesign --verify --deep --strict --verbose=1 "$APP"
 
 echo "Built: $APP"

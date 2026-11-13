@@ -50,6 +50,8 @@ final class AppModel: ObservableObject {
     @Published var displayError: String?
     @Published var lastTurn: TurnStats?
     @Published var turnActive = false
+    /// True when the last turn found no virtual mic and audio was refused (never falls back to speakers).
+    @Published var noVirtualMicWarning = false
     @Published var log: [String] = []
 
     // MARK: Environment
@@ -142,7 +144,7 @@ final class AppModel: ObservableObject {
         return ready && !protoMismatch ? "person.crop.rectangle.fill" : "person.crop.rectangle"
     }
 
-    /// Output device for a profile: explicit UID, else a BlackHole-looking device.
+    /// Output device for a profile: explicit UID, else the best virtual-mic device (see VirtualMic.pick).
     private func resolveOutput(_ p: TriggerProfile) -> AudioDeviceInfo? {
         if let uid = p.outputDeviceUID, let d = AudioDevices.device(uid: uid) { return d }
         return p.outputDeviceUID == nil ? AudioDevices.guessVirtualMic() : nil
@@ -335,9 +337,12 @@ final class AppModel: ObservableObject {
 
     private func prepareAudio(for profile: TriggerProfile) {
         guard let dev = resolveOutput(profile) else {
-            addLog("找不到輸出裝置:請在「聽寫」分頁選擇虛擬麥克風(例如 BlackHole 2ch)")
+            audio.shutdown()
+            noVirtualMicWarning = true
+            addLog("找不到虛擬麥克風:已拒絕播放語音(不會改播到喇叭)。請安裝 BadgeMic 虛擬麥克風驅動(或 BlackHole 2ch),或在「聽寫」分頁手動選擇輸出裝置")
             return
         }
+        noVirtualMicWarning = false
         do { try audio.prepare(deviceID: dev.id) } catch { addLog("音訊輸出失敗:\(error.localizedDescription)") }
         if profile.switchSystemInput, dev.inputChannels > 0 {
             savedInputDevice = AudioDevices.defaultInput()

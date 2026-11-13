@@ -5,6 +5,13 @@ public enum DisplayMode: String, Codable, Sendable, CaseIterable {
     case alwaysOn = "always_on"
 }
 
+/// Which key's long press (>= 600 ms) turns the screen off locally on the device.
+public enum OffKey: String, Codable, Sendable, CaseIterable {
+    case none
+    case upLong = "up_long"
+    case downLong = "down_long"
+}
+
 /// Display settings as used in `set_display`, the `hello.display` object and `display` events.
 /// Every field is optional: in a command, omitted fields keep the device's current value.
 public struct DisplaySettings: Codable, Equatable, Sendable {
@@ -14,6 +21,7 @@ public struct DisplaySettings: Codable, Equatable, Sendable {
     public var sleepMin: Int?
     public var brightness: Int?
     public var dimBrightness: Int?
+    public var offKey: OffKey?
 
     enum CodingKeys: String, CodingKey {
         case mode
@@ -22,16 +30,17 @@ public struct DisplaySettings: Codable, Equatable, Sendable {
         case sleepMin = "sleep_min"
         case brightness
         case dimBrightness = "dim_brightness"
+        case offKey = "off_key"
     }
 
     public init(mode: DisplayMode? = nil, dimS: Int? = nil, offS: Int? = nil, sleepMin: Int? = nil,
-                brightness: Int? = nil, dimBrightness: Int? = nil) {
+                brightness: Int? = nil, dimBrightness: Int? = nil, offKey: OffKey? = nil) {
         self.mode = mode; self.dimS = dimS; self.offS = offS; self.sleepMin = sleepMin
-        self.brightness = brightness; self.dimBrightness = dimBrightness
+        self.brightness = brightness; self.dimBrightness = dimBrightness; self.offKey = offKey
     }
 
     public static let defaults = DisplaySettings(mode: .auto, dimS: 30, offS: 120, sleepMin: 30,
-                                                 brightness: 80, dimBrightness: 20)
+                                                 brightness: 80, dimBrightness: 20, offKey: OffKey.none)
 
     /// Decodes either the object form or the legacy plain-string form (`"auto"`).
     public init(from decoder: Decoder) throws {
@@ -42,19 +51,21 @@ public struct DisplaySettings: Codable, Equatable, Sendable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         // An unknown mode string must not break the whole hello.
         let modeString = try? c.decodeIfPresent(String.self, forKey: .mode)
+        let offKeyString = try? c.decodeIfPresent(String.self, forKey: .offKey)
         self.init(mode: modeString.flatMap { DisplayMode(rawValue: $0) },
                   dimS: try c.decodeIfPresent(Int.self, forKey: .dimS),
                   offS: try c.decodeIfPresent(Int.self, forKey: .offS),
                   sleepMin: try c.decodeIfPresent(Int.self, forKey: .sleepMin),
                   brightness: try c.decodeIfPresent(Int.self, forKey: .brightness),
-                  dimBrightness: try c.decodeIfPresent(Int.self, forKey: .dimBrightness))
+                  dimBrightness: try c.decodeIfPresent(Int.self, forKey: .dimBrightness),
+                  offKey: offKeyString.flatMap { OffKey(rawValue: $0) })
     }
 
     /// Returns a copy with fields from `other` overriding where present.
     public func merged(with other: DisplaySettings) -> DisplaySettings {
         DisplaySettings(mode: other.mode ?? mode, dimS: other.dimS ?? dimS, offS: other.offS ?? offS,
                         sleepMin: other.sleepMin ?? sleepMin, brightness: other.brightness ?? brightness,
-                        dimBrightness: other.dimBrightness ?? dimBrightness)
+                        dimBrightness: other.dimBrightness ?? dimBrightness, offKey: other.offKey ?? offKey)
     }
 
     /// Fields of `self` that differ from `base` (only those are sent to the device).
@@ -62,7 +73,7 @@ public struct DisplaySettings: Codable, Equatable, Sendable {
         func d<T: Equatable>(_ a: T?, _ b: T?) -> T? { a == b ? nil : a }
         return DisplaySettings(mode: d(mode, base.mode), dimS: d(dimS, base.dimS), offS: d(offS, base.offS),
                                sleepMin: d(sleepMin, base.sleepMin), brightness: d(brightness, base.brightness),
-                               dimBrightness: d(dimBrightness, base.dimBrightness))
+                               dimBrightness: d(dimBrightness, base.dimBrightness), offKey: d(offKey, base.offKey))
     }
 
     public var isEmpty: Bool { self == DisplaySettings() }

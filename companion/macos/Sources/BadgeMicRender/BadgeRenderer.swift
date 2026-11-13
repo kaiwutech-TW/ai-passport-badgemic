@@ -161,7 +161,8 @@ public enum BadgeRenderer {
                 maxSize: 26, minSize: 16, bold: true, color: ink)
 
         let area = CGRect(x: 20, y: 70, width: 200, height: 200)
-        if let qr = qrImage(info.qrPayload) {
+        // At least 2 px per module so the 240 px screen stays scannable; otherwise show the error text.
+        if let qr = qrImage(info.qrPayload), qr.width * 2 <= Int(area.width) {
             let modules = qr.width
             let px = max(1, Int(area.width) / modules)           // integer module size keeps edges crisp
             let side = CGFloat(modules * px)

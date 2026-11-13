@@ -46,13 +46,27 @@ struct ButtonsTab: View {
         "\(s.key == .up ? "UP" : "DOWN") · \(s.gesture == .click ? "短按" : "長按")"
     }
 
+    /// The long press of this key is consumed by the device to turn the screen off.
+    private func isOffKey(_ s: ButtonSlot) -> Bool {
+        guard s.gesture == .long else { return false }
+        switch model.deviceDisplay.offKey {
+        case .upLong: return s.key == .up
+        case .downLong: return s.key == .down
+        default: return false
+        }
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 ForEach(ButtonSlot.allCases, id: \.storageKey) { slot in
+                    let reserved = isOffKey(slot)
                     GroupBox(title(slot)) {
-                        SlotEditor(action: Binding(get: { model.mappings[slot] }, set: { model.mappings[slot] = $0 }))
-                            .padding(6)
+                        VStack(alignment: .leading, spacing: 6) {
+                            if reserved { Text("已設為關閉螢幕").font(.caption).foregroundStyle(.orange) }
+                            SlotEditor(action: Binding(get: { model.mappings[slot] }, set: { model.mappings[slot] = $0 }))
+                                .disabled(reserved)
+                        }.padding(6)
                     }
                 }
                 Text("OK 鍵固定用於收音/切換名牌頁,不能對應動作。螢幕關閉時第一次按 UP/DOWN 只會喚醒螢幕。")

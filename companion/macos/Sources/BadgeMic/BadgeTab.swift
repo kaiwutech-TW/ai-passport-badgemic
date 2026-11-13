@@ -16,6 +16,9 @@ struct BadgeTab: View {
                             TextField("姓名", text: $model.badge.name)
                             TextField("職稱", text: $model.badge.title)
                             TextField("單位/公司", text: $model.badge.organization)
+                            TextField("電話", text: $model.badge.phone)
+                            TextField("Email", text: $model.badge.email)
+                            TextField("網站", text: $model.badge.website)
                             TextField("附加一行", text: $model.badge.extraLine)
                             HStack {
                                 Text(model.badge.photoPath.map { URL(fileURLWithPath: $0).lastPathComponent } ?? "未選擇照片")

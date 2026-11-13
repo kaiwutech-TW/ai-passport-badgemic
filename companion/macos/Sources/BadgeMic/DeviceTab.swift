@@ -90,6 +90,12 @@ struct DisplaySection: View {
                         value: intBinding(\.dimS, fallback: 30), in: 5...600, step: 5)
                 Stepper("閒置後熄屏:\(offText(intBinding(\.offS, fallback: 120).wrappedValue))",
                         value: intBinding(\.offS, fallback: 120), in: max(5, model.displayDraft.dimS ?? 5)...3600, step: 10)
+                Picker("長按關螢幕", selection: Binding(get: { model.displayDraft.offKey ?? OffKey.none },
+                                                    set: { model.displayDraft.offKey = $0 })) {
+                    Text("不使用").tag(OffKey.none)
+                    Text("長按上鍵").tag(OffKey.upLong)
+                    Text("長按下鍵").tag(OffKey.downLong)
+                }
                 HStack {
                     Stepper(sleepText, value: intBinding(\.sleepMin, fallback: 30), in: 0...240, step: 5)
                     Button("永不") { model.displayDraft.sleepMin = 0 }

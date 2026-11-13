@@ -41,13 +41,18 @@ struct DictationTab: View {
                     }.padding(6)
                 }
 
+                if model.noVirtualMicWarning {
+                    Text("找不到虛擬麥克風:為避免語音從喇叭播出,已拒絕播放。請安裝 BadgeMic 虛擬麥克風驅動,或在下方手動選擇輸出裝置。")
+                        .font(.callout).foregroundStyle(.orange)
+                }
+
                 GroupBox("所有輸出裝置") {
                     VStack(alignment: .leading, spacing: 4) {
                         ForEach(model.outputDevices) { d in
                             Text("\(d.name)  ·  \(d.outputChannels) ch\(d.inputChannels > 0 ? "  ·  同時有輸入端" : "")")
                         }
-                        if !model.outputDevices.contains(where: { $0.name.localizedCaseInsensitiveContains("blackhole") }) {
-                            Text("沒有看到 BlackHole。請安裝 BlackHole 2ch(brew install blackhole-2ch)後重新開啟此頁;辨識工具的麥克風也要選 BlackHole 2ch。")
+                        if AudioDevices.guessVirtualMic(in: model.outputDevices) == nil {
+                            Text("沒有看到虛擬麥克風。請安裝 BadgeMic 虛擬麥克風驅動(裝好後辨識工具的麥克風選「BadgeMic Microphone」);也可改用 BlackHole 2ch(brew install blackhole-2ch)。")
                                 .font(.caption).foregroundStyle(.orange)
                         }
                     }.frame(maxWidth: .infinity, alignment: .leading).padding(6)
@@ -73,7 +78,7 @@ struct ProfileEditor: View {
             Stepper("結尾等待 \(profile.tailMs) ms(播完後再放開)", value: $profile.tailMs, in: 0...3000, step: 50)
             Picker("輸出裝置(虛擬麥克風)", selection: Binding(get: { profile.outputDeviceUID ?? "" },
                                                         set: { profile.outputDeviceUID = $0.isEmpty ? nil : $0 })) {
-                Text("自動(找 BlackHole)").tag("")
+                Text("自動(找虛擬麥克風)").tag("")
                 ForEach(devices) { Text($0.name).tag($0.uid) }
             }
             Toggle("收音期間暫時把系統預設輸入切到虛擬麥克風", isOn: $profile.switchSystemInput)

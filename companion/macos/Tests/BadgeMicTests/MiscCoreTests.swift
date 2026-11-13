@@ -72,7 +72,7 @@ import Testing
 
 @Suite struct MessageTests {
     @Test func parseHelloWithDisplayObject() {
-        let json = #"{"ev":"hello","proto":1,"fw":"0.1.0","model":"Passport-3A2B","caps":["opus","put","display"],"page":{"w":240,"h":320,"fmt":"rgb565le","count":2},"battery":87,"display":{"mode":"auto","dim_s":30,"off_s":120,"sleep_min":30,"brightness":80,"dim_brightness":20}}"#
+        let json = #"{"ev":"hello","proto":1,"fw":"0.1.0","model":"Passport-3A2B","caps":["opus","put","display"],"page":{"w":240,"h":320,"fmt":"rgb565le","count":2},"battery":87,"display":{"mode":"auto","dim_s":30,"off_s":120,"sleep_min":30,"brightness":80,"dim_brightness":20,"off_key":"none"}}"#
         guard case .hello(let h)? = DeviceEvent.parse(Array(json.utf8)) else { Issue.record("no hello"); return }
         #expect(h.proto == 1 && h.fw == "0.1.0" && h.battery == 87)
         #expect(h.page?.count == 2)

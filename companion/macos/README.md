@@ -23,10 +23,16 @@ The wire contract is [`docs/development/engineering/badge-mic-protocol.md`](../.
 
 ```sh
 cd companion/macos
-./scripts/build-app.sh        # -> dist/BadgeMic.app (release, libopus bundled, ad-hoc signed)
+./scripts/build-app.sh        # -> dist/BadgeMic.app (release, libopus bundled, signed)
 ./scripts/test.sh             # run the Swift Testing suite (retries a known CLT flake)
 swift build                   # plain debug build
 ```
+
+Signing: the script signs with `$BADGEMIC_SIGN_IDENTITY` (a certificate SHA-1 hash or name) if set, otherwise the
+first "Developer ID Application" identity, otherwise the first "Apple Development" identity (hardened runtime,
+entitlements in `scripts/BadgeMic.entitlements`). Only when none exists does it fall back to ad-hoc signing, where the
+designated requirement is the code hash and macOS forgets the Accessibility grant on every rebuild. Check with
+`codesign -d -r- dist/BadgeMic.app`; the app is not notarized, so `spctl` rejects it (expected for local use).
 
 Tests use Swift Testing (XCTest is not available with Command Line Tools only). `test.sh`
 retries because under Command Line Tools `swift test` sometimes fails to locate the
@@ -42,7 +48,7 @@ output, key injection, SwiftUI).
    passkey shown on the badge. The characteristics require encryption.
 2. **Accessibility** (System Settings > Privacy & Security > Accessibility): required to inject the hotkey. The
    Dictation tab shows the status. Restart the app after granting it.
-3. **Virtual microphone**: install BlackHole 2ch. In BadgeMic's Dictation tab choose it as the output device. In your
+3. **Virtual microphone**: install the BadgeMic virtual microphone driver (device "BadgeMic Microphone"; BlackHole 2ch also works). Auto-detect prefers BadgeMic, then BlackHole and similar; if nothing is found the audio is refused instead of played to the speakers. In BadgeMic's Dictation tab choose it as the output device. In your
    dictation tool choose **BlackHole 2ch** as the microphone (or enable "switch system input" in the profile so
    BadgeMic makes it the default input only during a turn and restores the previous one afterwards).
 4. Pick the trigger profile (Parroting: Fn hold; Doubao: Fn hold; Custom: any key + modifiers, hold or toggle).
