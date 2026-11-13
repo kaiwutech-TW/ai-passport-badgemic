@@ -8,6 +8,22 @@
 # 坑 Registry
 
 ---
+name: pyserial-open-resets-usj
+type: gotcha
+status: active
+confidence: probable  # 1 次觀察:open 前已設 dtr=rts=False,log 仍以 rst:0x15 開頭(2026-11-13);未在其他主機重現
+tags: [esp32c3, usb-serial-jtag, macos, pyserial, monitoring]
+discovered: 2026-11-13
+---
+
+**症狀**:想「不重開機只讀 log」,在 macOS 用 pyserial 開 `/dev/cu.usbmodem*`(open 前已設 `dtr=False, rts=False`),
+裝置仍重開:log 開頭 `rst:0x15 (USB_UART_CHIP_RESET)`,BLE 連線斷掉重連。
+**根因(推測)**:macOS 開啟 tty 時驅動會先 assert DTR/RTS,pyserial 之後才套用設定;ESP32-C3 USB-Serial-JTAG 把這個線路
+變化當成重置序列。
+**繞法**:把「開 serial = 重開一次裝置」當成既定成本 —— 開之前先告知使用者，要觀察的操作排在開 port 之後做。
+需要開機後才發生的事件(例如熄屏)照樣抓得到;真正無擾動的觀察要改走 BLE 事件或 Mac App 的 log。
+
+---
 name: homebrew-dylib-targets-build-macos
 type: gotcha
 status: active
