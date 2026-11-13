@@ -2,6 +2,8 @@
 
 # AI Passport Badge Mic
 
+**网站：[badgemic.kaiwu.com.tw](https://badgemic.kaiwu.com.tw)**
+
 把 [FoloToy AI Passport](https://github.com/FoloToy/ai-passport) 变成两样可以戴在身上的东西：
 
 - **工牌**：竖版名片页加一个二维码（你的联系人 vCard，或任意链接），在 Mac 上设计好再传上去。

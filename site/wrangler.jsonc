@@ -1,0 +1,8 @@
+// Static showcase page, served by Cloudflare Workers static assets.
+// Deploy: npx wrangler@4 deploy   (from this folder)
+{
+  "name": "badgemic-site",
+  "compatibility_date": "2026-11-01",
+  "assets": { "directory": "./public" },
+  "routes": [{ "pattern": "badgemic.kaiwu.com.tw", "custom_domain": true }]
+}

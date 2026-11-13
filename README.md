@@ -2,6 +2,8 @@
 
 # AI Passport Badge Mic
 
+**Website: [badgemic.kaiwu.com.tw](https://badgemic.kaiwu.com.tw)**
+
 Turn a [FoloToy AI Passport](https://github.com/FoloToy/ai-passport) into two things you can wear:
 
 - **A name badge.** A portrait name card and a QR code (your contact card as a vCard, or any link), designed on your Mac.

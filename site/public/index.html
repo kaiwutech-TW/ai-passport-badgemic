@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BadgeMic — Name badge + push-to-talk mic for Mac</title>
+<meta name="description" content="Turn a FoloToy AI Passport into a name badge and a push-to-talk wireless microphone for Mac dictation. Hold a button, speak, and the words appear on your Mac.">
+<meta property="og:title" content="BadgeMic — your name badge is also your microphone">
+<meta property="og:description" content="Hold a button, speak, and the words appear on your Mac. Works with the dictation tool you already use.">
+<meta property="og:image" content="https://badgemic.kaiwu.com.tw/icon-256.png">
+<meta property="og:url" content="https://badgemic.kaiwu.com.tw/">
+<link rel="icon" type="image/png" href="favicon.png">
+<style>
+:root {
+  --bg: #f6f7fb;
+  --surface: #ffffff;
+  --surface-2: #eef0f7;
+  --text: #121528;
+  --muted: #5a607a;
+  --line: #dde0ec;
+  --teal: #0f7b8a;
+  --indigo: #2b3a8f;
+  --violet: #5b3a9e;
+  --orange: #f0822d;
+  --orange-ink: #b85a12;
+  --ok: #1f9d55;
+  --shadow: 0 18px 50px rgba(20, 24, 60, .12);
+  --radius: 18px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b0e1c;
+    --surface: #141831;
+    --surface-2: #1b2040;
+    --text: #eef0fb;
+    --muted: #a3a8c6;
+    --line: #2a3058;
+    --orange-ink: #ffa45c;
+    --shadow: 0 18px 50px rgba(0, 0, 0, .45);
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 16px/1.6 -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang TC", "PingFang SC", "Noto Sans TC", "Noto Sans SC", "Helvetica Neue", Arial, sans-serif;
+}
+a { color: inherit; }
+.wrap { max-width: 1120px; margin: 0 auto; padding: 0 20px; }
+
+/* nav */
+nav { position: sticky; top: 0; z-index: 10; backdrop-filter: saturate(1.4) blur(14px); -webkit-backdrop-filter: saturate(1.4) blur(14px);
+  background: color-mix(in srgb, var(--bg) 78%, transparent); border-bottom: 1px solid var(--line); }
+nav .wrap { display: flex; align-items: center; gap: 14px; height: 60px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; text-decoration: none; letter-spacing: .2px; }
+.brand img { width: 30px; height: 30px; }
+.spacer { flex: 1; }
+.lang { display: flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+.lang button { border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 13px; padding: 5px 11px; cursor: pointer; }
+.lang button[aria-pressed="true"] { background: var(--text); color: var(--bg); }
+.gh { font-size: 14px; color: var(--muted); text-decoration: none; }
+.gh:hover { color: var(--text); }
+
+/* hero */
+.hero { padding: 64px 0 40px; }
+.hero .wrap { display: grid; grid-template-columns: 1.05fr 1fr; gap: 48px; align-items: center; }
+.eyebrow { display: inline-block; font-size: 13px; font-weight: 600; color: var(--orange-ink);
+  background: color-mix(in srgb, var(--orange) 14%, transparent); padding: 4px 12px; border-radius: 999px; }
+h1 { font-size: clamp(34px, 5vw, 54px); line-height: 1.1; margin: 18px 0 16px; letter-spacing: -.5px; }
+h1 .grad { background: linear-gradient(100deg, var(--teal), var(--indigo) 55%, var(--violet)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) h1 .grad { background: linear-gradient(100deg, #3cc7d6, #8ea2ff 55%, #c19bff); -webkit-background-clip: text; background-clip: text; } }
+.lead { font-size: 19px; color: var(--muted); max-width: 34em; margin: 0 0 28px; }
+.cta { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; border-radius: 12px; font-weight: 600; text-decoration: none; border: 1px solid transparent; }
+.btn.primary { background: var(--orange); color: #fff; box-shadow: 0 8px 24px color-mix(in srgb, var(--orange) 40%, transparent); }
+.btn.primary:hover { filter: brightness(1.05); }
+.btn.ghost { border-color: var(--line); background: var(--surface); }
+.fine { font-size: 13px; color: var(--muted); margin-top: 14px; }
+
+/* demo stage */
+.stage { position: relative; height: 430px; }
+.mac { position: absolute; right: 0; top: 30px; width: 78%; height: 300px; background: var(--surface); border: 1px solid var(--line);
+  border-radius: 14px; box-shadow: var(--shadow); overflow: hidden; }
+.mac .bar { height: 34px; display: flex; align-items: center; gap: 7px; padding: 0 12px 0 96px; background: var(--surface-2); border-bottom: 1px solid var(--line); }
+.mac .bar i { width: 11px; height: 11px; border-radius: 50%; display: block; }
+.mac .bar i:nth-child(1) { background: #ff5f57; } .mac .bar i:nth-child(2) { background: #febc2e; } .mac .bar i:nth-child(3) { background: #28c840; }
+.mac .bar span { margin-left: 10px; font-size: 12px; color: var(--muted); }
+.mac .doc { padding: 22px 24px 22px 96px; font-size: 17px; min-height: 120px; }
+.mac .doc .prev { color: var(--muted); margin: 0 0 10px; }
+.caret { display: inline-block; width: 2px; height: 1.15em; background: var(--orange); vertical-align: -3px; margin-left: 1px; animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.hk { position: absolute; left: 96px; bottom: 18px; font-size: 13px; color: var(--muted); display: flex; gap: 8px; align-items: center; opacity: .35; transition: opacity .2s; }
+.hk.on { opacity: 1; color: var(--text); }
+.hk kbd { font: 600 12px/1 inherit; padding: 5px 8px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 6px; background: var(--surface-2); }
+
+.badge { position: absolute; left: 0; top: 0; width: 200px; }
+.lanyard { width: 64px; height: 70px; margin: 0 auto -6px; border-left: 14px solid #283163; border-right: 14px solid #283163; border-bottom: 0;
+  transform: perspective(200px) rotateX(18deg); }
+.clip { width: 34px; height: 16px; margin: 0 auto; background: linear-gradient(#cfd3dd, #9aa1b2); border-radius: 4px; }
+.device { margin-top: -2px; background: #1b1e2b; border-radius: 26px; padding: 14px 14px 18px; box-shadow: var(--shadow), inset 0 0 0 2px #2b2f42; }
+.screen { position: relative; width: 172px; height: 229px; border-radius: 12px; overflow: hidden; background: #fff; }
+.page { position: absolute; inset: 0; transition: opacity .25s; }
+.card { background: linear-gradient(160deg, #0f7b8a, #2b3a8f 60%, #5b3a9e); color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 14px; }
+.card .av { width: 64px; height: 64px; border-radius: 50%; background: rgba(255,255,255,.18); border: 2px solid rgba(255,255,255,.6); display: grid; place-items: center; font-size: 26px; font-weight: 700; margin-bottom: 12px; }
+.card b { font-size: 19px; line-height: 1.2; }
+.card small { display: block; opacity: .85; font-size: 12px; margin-top: 4px; }
+.card .co { margin-top: 14px; font-size: 11px; letter-spacing: 1px; opacity: .75; text-transform: uppercase; }
+.live { background: #10131f; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; }
+.live .ring { width: 78px; height: 78px; border-radius: 50%; border: 3px solid var(--orange); display: grid; place-items: center; animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(240,130,45,.45); } 50% { box-shadow: 0 0 0 12px rgba(240,130,45,0); } }
+.live strong { font-size: 22px; letter-spacing: 1px; }
+.live em { font-style: normal; font-size: 11px; opacity: .7; }
+.meter { width: 110px; height: 8px; border-radius: 4px; background: rgba(255,255,255,.15); overflow: hidden; }
+.meter i { display: block; height: 100%; width: 10%; background: #fff; border-radius: 4px; transition: width .12s; }
+.sent { background: #10131f; color: #fff; display: grid; place-items: center; text-align: center; }
+.sent .chk { width: 60px; height: 60px; border-radius: 50%; background: var(--ok); display: grid; place-items: center; margin: 0 auto 10px; }
+.sent strong { font-size: 24px; letter-spacing: 1px; }
+.keys { display: flex; justify-content: center; gap: 10px; margin-top: 14px; }
+.keys span { width: 34px; height: 12px; border-radius: 6px; background: #3a3f57; transition: background .15s, transform .15s; }
+.keys span.ok { width: 44px; }
+.keys span.down { background: var(--orange); transform: translateY(2px); }
+.waves { position: absolute; left: 196px; top: 210px; width: 120px; height: 40px; opacity: 0; transition: opacity .2s; }
+.waves.on { opacity: 1; }
+.waves path { fill: none; stroke: var(--orange); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 6 9; animation: flow .7s linear infinite; }
+@keyframes flow { to { stroke-dashoffset: -30; } }
+
+/* sections */
+section { padding: 72px 0; }
+section.alt { background: var(--surface); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+h2 { font-size: clamp(26px, 3.4vw, 36px); line-height: 1.2; margin: 0 0 12px; letter-spacing: -.3px; }
+.sub { color: var(--muted); margin: 0 0 36px; max-width: 40em; }
+.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; counter-reset: s; }
+.step { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 24px; position: relative; }
+section.alt .step { background: var(--bg); }
+.step::before { counter-increment: s; content: counter(s); position: absolute; top: 20px; right: 22px; font-size: 40px; font-weight: 800; color: var(--line); line-height: 1; }
+.step h3, .feat h3 { margin: 10px 0 6px; font-size: 18px; }
+.step p, .feat p { margin: 0; color: var(--muted); font-size: 15px; }
+.ico { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; background: color-mix(in srgb, var(--orange) 14%, transparent); color: var(--orange-ink); }
+.ico svg { width: 22px; height: 22px; }
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.feat { padding: 4px 2px; }
+.setup { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; counter-reset: s; }
+.setup .step { padding: 20px; }
+.setup .step::before { font-size: 28px; top: 16px; right: 16px; }
+.setup .step p { padding-right: 18px; }
+.setup .step h3 { font-size: 16px; margin-top: 0; padding-right: 30px; }
+.req { display: flex; flex-wrap: wrap; gap: 10px; margin: 30px 0 0; padding: 0; list-style: none; }
+.req li { border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; font-size: 14px; background: var(--surface); }
+.faq { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px 28px; }
+.faq details { border-bottom: 1px solid var(--line); padding: 12px 0; }
+.faq summary { cursor: pointer; font-weight: 600; }
+.faq p { color: var(--muted); margin: 8px 0 0; font-size: 15px; }
+footer { padding: 36px 0 48px; color: var(--muted); font-size: 14px; }
+footer .wrap { display: flex; flex-wrap: wrap; gap: 10px 24px; align-items: center; }
+
+@media (max-width: 900px) {
+  .hero .wrap { grid-template-columns: 1fr; }
+  .stage { height: 400px; max-width: 520px; }
+  .grid, .steps { grid-template-columns: 1fr 1fr; }
+  .setup { grid-template-columns: 1fr 1fr; }
+  .faq { grid-template-columns: 1fr; }
+}
+@media (max-width: 560px) {
+  .hero { padding-top: 36px; }
+  .grid, .steps, .setup { grid-template-columns: 1fr; }
+  .stage { height: 360px; }
+  .badge { transform: scale(.8); transform-origin: top left; }
+  .mac { width: 72%; top: 70px; height: 250px; }
+  .mac .doc { padding-left: 24px; font-size: 15px; }
+  .mac .bar { padding-left: 12px; }
+  .hk { left: 24px; }
+  .waves { display: none; }
+  .gh span { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+<nav>
+  <div class="wrap">
+    <a class="brand" href="#"><img src="icon-256.png" alt="" width="30" height="30">BadgeMic</a>
+    <div class="spacer"></div>
+    <div class="lang" role="group" aria-label="Language">
+      <button data-set-lang="en">EN</button><button data-set-lang="zh-TW">繁中</button><button data-set-lang="zh-CN">简中</button>
+    </div>
+    <a class="gh" href="https://github.com/kaiwutech-TW/ai-passport-badgemic" aria-label="GitHub">
+      <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" style="vertical-align:-3px"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      <span>GitHub</span></a>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <div>
+      <span class="eyebrow" data-i18n="eyebrow">For FoloToy AI Passport · macOS</span>
+      <h1 data-i18n-html="h1">Your name badge is also <span class="grad">your microphone.</span></h1>
+      <p class="lead" data-i18n="lead">Hold a button, speak, and the words appear on your Mac. BadgeMic works with the dictation tool you already use, and doubles as a name badge with your contact QR code.</p>
+      <div class="cta">
+        <a class="btn primary" href="https://github.com/kaiwutech-TW/ai-passport-badgemic/releases/latest" data-i18n="dl">Download for Mac</a>
+        <a class="btn ghost" href="https://github.com/kaiwutech-TW/ai-passport-badgemic#readme" data-i18n="guide">Setup guide</a>
+      </div>
+      <p class="fine" data-i18n="fine">Free and open source (MIT) · Apple silicon, macOS 14+ · Signed and notarized</p>
+    </div>
+
+    <div class="stage" aria-hidden="true">
+      <div class="mac">
+        <div class="bar"><i></i><i></i><i></i><span data-i18n="notes">Notes</span></div>
+        <div class="doc">
+          <p class="prev" data-i18n="prev">Meeting notes</p>
+          <span id="typed"></span><span class="caret"></span>
+        </div>
+        <div class="hk" id="hk"><kbd>fn</kbd><span data-i18n="held">held by BadgeMic</span></div>
+      </div>
+      <svg class="waves" id="waves" viewBox="0 0 120 40"><path d="M2 20 C 30 2, 50 38, 78 20 S 110 6, 118 20"/></svg>
+      <div class="badge">
+        <div class="lanyard"></div>
+        <div class="clip"></div>
+        <div class="device">
+          <div class="screen">
+            <div class="page card" id="pCard">
+              <div class="av" data-i18n="initial">A</div>
+              <b data-i18n="name">Alex Chen</b>
+              <small data-i18n="title">Product Designer</small>
+              <div class="co" data-i18n="company">Example Studio</div>
+            </div>
+            <div class="page live" id="pLive" style="opacity:0">
+              <div class="ring"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></div>
+              <strong>LIVE</strong><em>Speak now</em>
+              <div class="meter"><i id="lvl"></i></div>
+            </div>
+            <div class="page sent" id="pSent" style="opacity:0">
+              <div><div class="chk"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg></div><strong>SENT</strong></div>
+            </div>
+          </div>
+          <div class="keys"><span></span><span class="ok" id="okKey"></span><span></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section class="alt" id="how">
+  <div class="wrap">
+    <h2 data-i18n="howT">How it works</h2>
+    <p class="sub" data-i18n="howS">The badge does one thing well: it listens while you hold OK. Everything else happens on your Mac, in apps you choose.</p>
+    <div class="steps">
+      <div class="step"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></div>
+        <h3 data-i18n="s1t">Hold OK and talk</h3><p data-i18n="s1p">The badge records with its own microphone and compresses your voice with Opus.</p></div>
+      <div class="step"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7l10 10-5 4V3l5 4L7 17"/></svg></div>
+        <h3 data-i18n="s2t">Bluetooth to BadgeMic</h3><p data-i18n="s2p">An encrypted, paired Bluetooth LE link carries the audio to the BadgeMic app. No Wi-Fi, no account.</p></div>
+      <div class="step"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M7 9h6M7 12h9"/></svg></div>
+        <h3 data-i18n="s3t">Your dictation tool types</h3><p data-i18n="s3p">BadgeMic plays the audio into a virtual microphone and holds your tool's hotkey. Release OK and the text lands where you're typing.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="features">
+  <div class="wrap">
+    <h2 data-i18n="featT">One badge, two jobs</h2>
+    <p class="sub" data-i18n="featS">A name badge when you're meeting people, a microphone when you're writing.</p>
+    <div class="grid">
+      <div class="feat"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><circle cx="12" cy="10" r="3"/><path d="M8 17c1-2 7-2 8 0"/></svg></div>
+        <h3 data-i18n="f1t">Name card and QR code</h3><p data-i18n="f1p">Design a portrait name card on your Mac and add a QR code with your vCard (phone, email, website) or any link.</p></div>
+      <div class="feat"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 12h2M8 8v8M12 5v14M16 8v8M20 12h0"/></svg></div>
+        <h3 data-i18n="f2t">Works with your dictation tool</h3><p data-i18n="f2p">Parroting, Doubao, macOS Dictation or anything with a hotkey. Profiles for hold-to-talk and press-to-toggle.</p></div>
+      <div class="feat"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="12" r="2.5"/><circle cx="12" cy="12" r="2.5"/><circle cx="18" cy="12" r="2.5"/></svg></div>
+        <h3 data-i18n="f3t">Buttons you can program</h3><p data-i18n="f3p">Map UP and DOWN short or long presses to shortcuts, Return, text snippets, Shortcuts, opening an app, or turning the screen off.</p></div>
+      <div class="feat"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M5 19l1.5-1.5M17.5 6.5L19 5"/></svg></div>
+        <h3 data-i18n="f4t">Screen on your terms</h3><p data-i18n="f4p">Choose when it dims and sleeps, keep it always on at an event, or hold a button to turn it off instantly.</p></div>
+      <div class="feat"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg></div>
+        <h3 data-i18n="f5t">Private by design</h3><p data-i18n="f5p">Audio only travels to your own Mac over a paired link. BadgeMic itself never uploads anything.</p></div>
+      <div class="feat"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h10M4 17h7"/><path d="M17 14l3 3-3 3"/></svg></div>
+        <h3 data-i18n="f6t">Open source</h3><p data-i18n="f6p">Firmware, Mac app and virtual microphone driver are MIT licensed, built on FoloToy's open AI Passport template.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="alt" id="start">
+  <div class="wrap">
+    <h2 data-i18n="startT">Get started in four steps</h2>
+    <p class="sub" data-i18n="startS">About fifteen minutes. The full guide, with commands, is in the README.</p>
+    <div class="setup">
+      <div class="step"><h3 data-i18n="g1t">Back up and flash</h3><p data-i18n="g1p">Save a copy of the badge's original firmware, then flash BadgeMic with esptool over USB-C.</p></div>
+      <div class="step"><h3 data-i18n="g2t">Install the app</h3><p data-i18n="g2p">Open the DMG, then install the virtual microphone and allow Accessibility from inside the app.</p></div>
+      <div class="step"><h3 data-i18n="g3t">Pair and pick a tool</h3><p data-i18n="g3p">Enter the 6-digit code shown on the badge, choose your dictation tool's hotkey, and set its microphone to BadgeMic Microphone.</p></div>
+      <div class="step"><h3 data-i18n="g4t">Make your badge</h3><p data-i18n="g4p">Fill in your name and contact details, add a photo, and upload. Tap OK to flip between pages.</p></div>
+    </div>
+    <ul class="req">
+      <li data-i18n="r1">FoloToy AI Passport</li>
+      <li data-i18n="r2">Mac with Apple silicon</li>
+      <li data-i18n="r3">macOS 14 or later</li>
+      <li data-i18n="r4">A dictation tool with a hotkey</li>
+    </ul>
+  </div>
+</section>
+
+<section id="faq">
+  <div class="wrap">
+    <h2 data-i18n="faqT">Questions</h2>
+    <div class="faq">
+      <details><summary data-i18n="q1">Does it work with iPhone or Windows?</summary><p data-i18n="a1">Not yet. BadgeMic is a Mac app; the badge talks to it over Bluetooth LE.</p></details>
+      <details><summary data-i18n="q2">Does the badge need Wi-Fi or an account?</summary><p data-i18n="a2">No. It only pairs with your Mac. There is no cloud service behind BadgeMic.</p></details>
+      <details><summary data-i18n="q3">Which dictation tools work?</summary><p data-i18n="a3">Any tool that starts listening on a hotkey and lets you choose its microphone. Many tools have their own microphone setting, so pick BadgeMic Microphone there.</p></details>
+      <details><summary data-i18n="q4">Can I go back to the official firmware?</summary><p data-i18n="a4">Yes. Write your backup back to the badge, or follow FoloToy's restore guide. Never run erase_flash: it removes the device identity.</p></details>
+      <details><summary data-i18n="q5">Is this an official FoloToy product?</summary><p data-i18n="a5">No. It is a community project built on FoloToy's open-source template and is not supported by FoloToy.</p></details>
+      <details><summary data-i18n="q6">What about the NFC tag on the back?</summary><p data-i18n="a6">It is a separate chip. Write any link to it, such as your LINE or LinkedIn profile, with a phone app like NFC Tools. Don't lock it.</p></details>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span>BadgeMic · MIT</span>
+    <a href="https://github.com/kaiwutech-TW/ai-passport-badgemic">GitHub</a>
+    <a href="https://github.com/FoloToy/ai-passport" data-i18n="upstream">Built on FoloToy/ai-passport</a>
+    <span data-i18n="notaff">Not affiliated with FoloToy.</span>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var T = {
+    "zh-TW": {
+      eyebrow: "適用 FoloToy AI Passport · macOS",
+      h1: '你的名牌，<span class="grad">也是你的麥克風。</span>',
+      lead: "按住按鈕說話，文字就出現在 Mac 上。BadgeMic 搭配你原本就在用的聽寫工具，平常則是一張附聯絡人 QR 碼的名牌。",
+      dl: "下載 Mac 版", guide: "安裝教學",
+      fine: "免費開源（MIT）· Apple 晶片、macOS 14 以上 · 已簽名並通過 Apple 認證",
+      notes: "備忘錄", prev: "會議紀錄", held: "BadgeMic 正按住",
+      initial: "王", name: "王小明", title: "產品設計師", company: "範例工作室",
+      howT: "運作方式", howS: "名牌只專心做一件事：你按住 OK 時收音。其他事都在你的 Mac 上、用你選的 App 完成。",
+      s1t: "按住 OK 說話", s1p: "名牌用內建麥克風收音，並以 Opus 壓縮你的聲音。",
+      s2t: "藍牙送到 BadgeMic", s2p: "經過配對、加密的藍牙 LE 連線把聲音送到 BadgeMic App。不需要 Wi-Fi，也不用註冊帳號。",
+      s3t: "聽寫工具幫你打字", s3p: "BadgeMic 把聲音播進虛擬麥克風，同時按住聽寫工具的快捷鍵。放開 OK，文字就打在你正在輸入的地方。",
+      featT: "一張名牌，兩種用途", featS: "見人時是名牌，寫東西時是麥克風。",
+      f1t: "名片與 QR 碼", f1p: "在 Mac 上設計直式名片，再加一個 QR 碼：你的聯絡人 vCard（電話、Email、網站）或任何連結。",
+      f2t: "搭配你的聽寫工具", f2p: "學舌鳥、豆包、macOS 聽寫，或任何有快捷鍵的工具。支援「按住說話」與「按一下切換」。",
+      f3t: "可自訂的按鍵", f3p: "UP、DOWN 的短按和長按可以設成快捷鍵、Return、文字片段、「捷徑」、開啟 App，或關閉螢幕。",
+      f4t: "螢幕由你決定", f4p: "自訂多久調暗、多久熄屏；活動現場可以常亮，也能長按一鍵立即關螢幕。",
+      f5t: "隱私優先", f5p: "聲音只經過配對的連線送到你自己的 Mac，BadgeMic 本身不上傳任何東西。",
+      f6t: "開放原始碼", f6p: "韌體、Mac App 和虛擬麥克風驅動都以 MIT 授權，建立在 FoloToy 開源的 AI Passport 範本上。",
+      startT: "四個步驟開始使用", startS: "大約十五分鐘。完整步驟和指令在 README 裡。",
+      g1t: "備份並刷機", g1p: "先保存名牌原本的韌體，再用 esptool 透過 USB-C 刷入 BadgeMic。",
+      g2t: "安裝 App", g2p: "打開 DMG，接著在 App 裡安裝虛擬麥克風並允許「輔助使用」。",
+      g3t: "配對並選擇工具", g3p: "輸入名牌上顯示的 6 位數配對碼，選好聽寫工具的快捷鍵，並把它的麥克風設成 BadgeMic Microphone。",
+      g4t: "做你的名牌", g4p: "填入姓名和聯絡方式、加上照片後上傳。輕按 OK 切換頁面。",
+      r1: "FoloToy AI Passport", r2: "Apple 晶片的 Mac", r3: "macOS 14 以上", r4: "有快捷鍵的聽寫工具",
+      faqT: "常見問題",
+      q1: "可以用在 iPhone 或 Windows 嗎？", a1: "目前不行。BadgeMic 是 Mac App，名牌透過藍牙 LE 跟它連線。",
+      q2: "名牌需要 Wi-Fi 或帳號嗎？", a2: "不需要。它只跟你的 Mac 配對，BadgeMic 背後沒有任何雲端服務。",
+      q3: "支援哪些聽寫工具？", a3: "任何用快捷鍵開始收音、而且能選麥克風的工具。很多工具有自己的麥克風設定，請在那裡選 BadgeMic Microphone。",
+      q4: "可以換回官方韌體嗎？", a4: "可以。把備份寫回名牌，或照 FoloToy 的恢復教學操作。千萬不要執行 erase_flash，它會刪掉裝置身分。",
+      q5: "這是 FoloToy 官方產品嗎？", a5: "不是。這是建立在 FoloToy 開源範本上的社群專案，FoloToy 不提供支援。",
+      q6: "背面的 NFC 呢？", a6: "那是獨立的晶片。可以用 NFC Tools 等手機 App 寫入任何連結，例如 LINE 或 LinkedIn。不要鎖定它。",
+      upstream: "基於 FoloToy/ai-passport", notaff: "與 FoloToy 無隸屬關係。",
+      typed: "明天下午三點開會，順便看一下新版本的展示。"
+    },
+    "zh-CN": {
+      eyebrow: "适用于 FoloToy AI Passport · macOS",
+      h1: '你的工牌，<span class="grad">也是你的麦克风。</span>',
+      lead: "按住按键说话，文字就出现在 Mac 上。BadgeMic 搭配你已经在用的听写工具，平时则是一张带联系人二维码的工牌。",
+      dl: "下载 Mac 版", guide: "安装教程",
+      fine: "免费开源（MIT）· Apple 芯片、macOS 14 及以上 · 已签名并通过 Apple 公证",
+      notes: "备忘录", prev: "会议记录", held: "BadgeMic 正按住",
+      initial: "王", name: "王小明", title: "产品设计师", company: "示例工作室",
+      howT: "工作原理", howS: "工牌只专心做一件事：你按住 OK 时收音。其他事都在你的 Mac 上、用你选的应用完成。",
+      s1t: "按住 OK 说话", s1p: "工牌用自带麦克风收音，并用 Opus 压缩你的声音。",
+      s2t: "蓝牙传到 BadgeMic", s2p: "经过配对、加密的蓝牙 LE 连接把声音传到 BadgeMic 应用。不需要 Wi-Fi，也不用注册账号。",
+      s3t: "听写工具帮你打字", s3p: "BadgeMic 把声音播进虚拟麦克风，同时按住听写工具的快捷键。松开 OK，文字就打在你正在输入的地方。",
+      featT: "一张工牌，两种用途", featS: "见人时是工牌，写东西时是麦克风。",
+      f1t: "名片与二维码", f1p: "在 Mac 上设计竖版名片，再加一个二维码：你的联系人 vCard（电话、Email、网站）或任意链接。",
+      f2t: "搭配你的听写工具", f2p: "学舌鸟、豆包、macOS 听写，或任何有快捷键的工具。支持「按住说话」和「按一下切换」。",
+      f3t: "可自定义的按键", f3p: "UP、DOWN 的短按和长按可设为快捷键、Return、文字片段、「快捷指令」、打开应用，或关闭屏幕。",
+      f4t: "屏幕由你决定", f4p: "自定义多久调暗、多久熄屏；活动现场可以常亮，也能长按一键立即关屏。",
+      f5t: "隐私优先", f5p: "声音只经过配对的连接送到你自己的 Mac，BadgeMic 本身不上传任何东西。",
+      f6t: "开源", f6p: "固件、Mac 应用和虚拟麦克风驱动均为 MIT 许可，基于 FoloToy 开源的 AI Passport 模板。",
+      startT: "四步开始使用", startS: "大约十五分钟。完整步骤和命令在 README 里。",
+      g1t: "备份并刷机", g1p: "先保存工牌原来的固件，再用 esptool 通过 USB-C 刷入 BadgeMic。",
+      g2t: "安装应用", g2p: "打开 DMG，然后在应用里安装虚拟麦克风并允许「辅助功能」。",
+      g3t: "配对并选择工具", g3p: "输入工牌上显示的 6 位配对码，选好听写工具的快捷键，并把它的麦克风设为 BadgeMic Microphone。",
+      g4t: "做你的工牌", g4p: "填写姓名和联系方式、加上照片后上传。轻按 OK 切换页面。",
+      r1: "FoloToy AI Passport", r2: "Apple 芯片的 Mac", r3: "macOS 14 及以上", r4: "有快捷键的听写工具",
+      faqT: "常见问题",
+      q1: "能用在 iPhone 或 Windows 上吗？", a1: "暂时不行。BadgeMic 是 Mac 应用，工牌通过蓝牙 LE 与它连接。",
+      q2: "工牌需要 Wi-Fi 或账号吗？", a2: "不需要。它只和你的 Mac 配对，BadgeMic 背后没有任何云服务。",
+      q3: "支持哪些听写工具？", a3: "任何用快捷键开始收音、并且能选择麦克风的工具。很多工具有独立的麦克风设置，请在那里选 BadgeMic Microphone。",
+      q4: "能换回官方固件吗？", a4: "可以。把备份写回工牌，或按 FoloToy 的恢复教程操作。千万不要执行 erase_flash，它会删除设备身份。",
+      q5: "这是 FoloToy 官方产品吗？", a5: "不是。这是基于 FoloToy 开源模板的社区项目，FoloToy 不提供支持。",
+      q6: "背面的 NFC 呢？", a6: "那是独立芯片。可用 NFC Tools 等手机应用写入任意链接，例如 LINE 或 LinkedIn。不要锁定它。",
+      upstream: "基于 FoloToy/ai-passport", notaff: "与 FoloToy 无隶属关系。",
+      typed: "明天下午三点开会，顺便看一下新版本的演示。"
+    }
+  };
+  var EN = { typed: "Let's meet at three tomorrow and walk through the new demo." };
+  var nodes = document.querySelectorAll("[data-i18n]"), htmlNodes = document.querySelectorAll("[data-i18n-html]");
+  nodes.forEach(function (n) { EN[n.dataset.i18n] = n.textContent; });
+  htmlNodes.forEach(function (n) { EN[n.dataset.i18nHtml] = n.innerHTML; });
+  var lang = "en";
+
+  function pick() {
+    try { var q = new URLSearchParams(location.search).get("lang"); if (q && (q === "en" || T[q])) return q; } catch (e) {}
+    try { var s = localStorage.getItem("bm-lang"); if (s && (s === "en" || T[s])) return s; } catch (e) {}
+    var l = (navigator.languages && navigator.languages[0]) || navigator.language || "en";
+    l = l.toLowerCase();
+    if (l.indexOf("zh") === 0) return /tw|hk|mo|hant/.test(l) ? "zh-TW" : "zh-CN";
+    return "en";
+  }
+  function apply(l) {
+    lang = l;
+    var d = l === "en" ? EN : T[l];
+    nodes.forEach(function (n) { var v = d[n.dataset.i18n]; if (v != null) n.textContent = v; });
+    htmlNodes.forEach(function (n) { var v = d[n.dataset.i18nHtml]; if (v != null) n.innerHTML = v; });
+    document.documentElement.lang = l;
+    document.querySelectorAll("[data-set-lang]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.setLang === l)); });
+    restart();
+  }
+  document.querySelectorAll("[data-set-lang]").forEach(function (b) {
+    b.addEventListener("click", function () { try { localStorage.setItem("bm-lang", b.dataset.setLang); } catch (e) {} apply(b.dataset.setLang); });
+  });
+
+  // demo loop: badge -> hold OK (LIVE, typing) -> SENT -> badge
+  var typed = document.getElementById("typed"), hk = document.getElementById("hk"), waves = document.getElementById("waves"),
+      okKey = document.getElementById("okKey"), lvl = document.getElementById("lvl"),
+      pages = { card: document.getElementById("pCard"), live: document.getElementById("pLive"), sent: document.getElementById("pSent") };
+  var reduced = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var timers = [], meter = null;
+  function later(fn, ms) { timers.push(setTimeout(fn, ms)); }
+  function show(p) { Object.keys(pages).forEach(function (k) { pages[k].style.opacity = k === p ? "1" : "0"; }); }
+  function text() { return (lang === "en" ? EN : T[lang]).typed; }
+  function restart() {
+    timers.forEach(clearTimeout); timers = []; clearInterval(meter); lvl.style.width = "10%";
+    if (reduced) { show("card"); typed.textContent = text(); return; }
+    cycle();
+  }
+  function cycle() {
+    var t = text();
+    typed.textContent = ""; show("card"); hk.classList.remove("on"); waves.classList.remove("on"); okKey.classList.remove("down");
+    later(function () {
+      okKey.classList.add("down"); show("live"); hk.classList.add("on"); waves.classList.add("on");
+      meter = setInterval(function () { lvl.style.width = (20 + Math.random() * 70) + "%"; }, 120);
+      var step = Math.max(45, Math.min(110, 2600 / t.length));
+      for (var i = 1; i <= t.length; i++) (function (i) { later(function () { typed.textContent = t.slice(0, i); }, 500 + i * step); })(i);
+      later(function () {
+        clearInterval(meter); lvl.style.width = "10%";
+        okKey.classList.remove("down"); hk.classList.remove("on"); waves.classList.remove("on"); show("sent");
+        later(function () { show("card"); }, 900);
+        later(cycle, 3400);
+      }, 900 + t.length * step);
+    }, 1600);
+  }
+  apply(pick());
+})();
+</script>
+</body>
+</html>
