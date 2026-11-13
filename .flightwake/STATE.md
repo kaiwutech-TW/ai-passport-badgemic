@@ -22,16 +22,19 @@ health: green  # 真機端到端、自寫驅動、off_key、收音增益皆經�
 - [ ] 還沒看到 `ptt_end.stats` 的實際數字(enc_max、stack_free):請使用者截 App 記錄或「最近一輪」
 - [ ] USB 序列埠開機約 210 秒後消失(根因未明,只影響 log)
 - [ ] Mac 測試腳本偶發 `fatalError`(TestingMacros),重跑即過;`scripts/test.sh` 的重試沒接住這種輸出,待補
-- [ ] App 已用 Apple Development 憑證簽名:重編後輔助使用授權是否保留待驗證(驗過把 TRAPS adhoc 條目改 superseded)
+- [x] 2026-11-13 Developer ID Application 憑證已建(到期 2027-12-13,私鑰只在本機登入鑰匙圈)、notarytool 設定檔 `BadgeMic` 已存;
+      `companion/macos/scripts/package.sh` 產出 `dist/BadgeMic-0.1.0.dmg`:App 與 DMG 皆 notarize Accepted + staple,spctl「Notarized Developer ID」
+- [ ] 換成 Developer ID 簽名後,使用者需再授權輔助使用一次;之後重編是否保留待驗證(驗過把 TRAPS adhoc 條目改 superseded)
 - [ ] 未測:名牌 vCard(電話/Email/網站)上傳、UP/DOWN 其他動作、深睡喚醒
-- [ ] 轉 MacBook Air:要免右鍵開啟需 Developer ID Application 憑證 + notarize(使用者有開發者帳號,未建);驅動安裝需管理員密碼
-      (`osascript … with administrator privileges` 跑 `companion/macos/Driver/install.sh`;`!` 前綴的 shell 沒有 tty,sudo 會失敗);
-      辨識工具要在它自己的設定裡選 BadgeMic Microphone(TRAPS parroting-own-mic-setting)
+- [ ] 轉 MacBook Air(未做):DMG 拖進「應用程式」→ 開啟 →「聽寫」分頁「安裝虛擬麥克風」(App 內建驅動,要管理員密碼)→ 授權輔助使用
+      → 名牌在本機「忘記裝置」後到 Air 重新配對 → 辨識工具自己的麥克風設定選 BadgeMic Microphone(TRAPS parroting-own-mic-setting)。
+      App 只有 arm64;Air 若是 Intel 要另做 x86_64
 
 # 下一步入口
 
 1. 讀每輪統計(App 記錄),確認 enc_max < 60 ms、stack_free 有餘裕
 2. 測 vCard 名牌上傳、UP/DOWN 其他動作
+3. 搬到 MacBook Air(見上)
 3. 刷機備份在 `~/esp/passport-backup/factory-full-20261113.bin`(含裝置序號與金鑰,勿 commit/上傳)
 
 # 常備事實(這個 repo 的 3-5 條保命知識)

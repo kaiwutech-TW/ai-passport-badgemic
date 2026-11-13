@@ -8,6 +8,24 @@
 # 坑 Registry
 
 ---
+name: homebrew-dylib-targets-build-macos
+type: gotcha
+status: active
+confidence: confirmed  # otool:Homebrew libopus minos 27.0;自編版 minos 14.0、匯出符號數相同(2026-11-13)
+tags: [macos, packaging, homebrew, companion]
+discovered: 2026-11-13
+paths: ["companion/macos/scripts/build-app.sh", "companion/macos/scripts/build-opus.sh"]
+---
+
+**症狀**:連結時警告 `linking with dylib '/opt/homebrew/opt/opus/lib/libopus.0.dylib' which was built for newer version 27.0`;
+把這個 dylib 打包進 App,在 macOS 版本較舊的 Mac 上 dyld 會拒絕載入 → App 開不起來。
+**根因**:Homebrew bottle 以「建置機自己的 macOS 版本」為 deployment target(`otool -l` 的 LC_BUILD_VERSION minos = 27.0),
+不是 App 的 LSMinimumSystemVersion(14.0)。
+**解法**:`scripts/build-opus.sh` 從官方原始碼(SHA-256 釘死、版本與 Homebrew 相同)以 `-mmacosx-version-min=14.0` 自編後打包;
+編譯仍用 Homebrew 標頭。任何要打包的 Homebrew dylib 都要先 `otool -l … | grep -A4 LC_BUILD_VERSION` 看 minos。
+**佐證**:commit e29bf24。
+
+---
 name: parroting-own-mic-setting
 type: gotcha
 status: active
