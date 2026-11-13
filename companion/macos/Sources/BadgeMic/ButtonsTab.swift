@@ -56,20 +56,49 @@ struct ButtonsTab: View {
         }
     }
 
+    private static let screenOffTag = "screenOff"
+
+    /// Long-press picker: the usual Mac actions plus "turn the badge screen off" (device setting off_key).
+    private func longPicker(_ slot: ButtonSlot, reserved: Bool) -> some View {
+        Picker("動作", selection: Binding<String>(
+            get: { reserved ? Self.screenOffTag : ActionKind(model.mappings[slot]).rawValue },
+            set: { v in
+                if v == Self.screenOffTag {
+                    model.setOffKey(slot.key == .up ? .upLong : .downLong)
+                } else {
+                    if reserved { model.setOffKey(.none) }
+                    model.mappings[slot] = (ActionKind(rawValue: v) ?? .none).empty
+                }
+            })) {
+            ForEach(ActionKind.allCases) { Text($0.label).tag($0.rawValue) }
+            Divider()
+            Text("關閉名牌螢幕").tag(Self.screenOffTag)
+        }
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 ForEach(ButtonSlot.allCases, id: \.storageKey) { slot in
                     let reserved = isOffKey(slot)
+                    let binding = Binding(get: { model.mappings[slot] }, set: { model.mappings[slot] = $0 })
                     GroupBox(title(slot)) {
-                        VStack(alignment: .leading, spacing: 6) {
-                            if reserved { Text("已設為關閉螢幕").font(.caption).foregroundStyle(.orange) }
-                            SlotEditor(action: Binding(get: { model.mappings[slot] }, set: { model.mappings[slot] = $0 }))
-                                .disabled(reserved)
+                        VStack(alignment: .leading, spacing: 8) {
+                            if slot.gesture == .long {
+                                longPicker(slot, reserved: reserved)
+                                if reserved {
+                                    Text("在名牌上長按此鍵即關閉螢幕(名牌自己處理,不連 Mac 也有效);再按任一鍵喚醒。")
+                                        .font(.caption).foregroundStyle(.secondary)
+                                } else {
+                                    SlotEditor(action: binding, showPicker: false)
+                                }
+                            } else {
+                                SlotEditor(action: binding, showPicker: true)
+                            }
                         }.padding(6)
                     }
                 }
-                Text("OK 鍵固定用於收音/切換名牌頁,不能對應動作。螢幕關閉時第一次按 UP/DOWN 只會喚醒螢幕。")
+                Text("OK 鍵固定用於收音/切換名牌頁,不能對應動作。螢幕關閉時第一次按 UP/DOWN 只會喚醒螢幕。「關閉名牌螢幕」需名牌連線中才能設定。")
                     .font(.caption).foregroundStyle(.secondary)
             }.padding()
         }
@@ -78,11 +107,14 @@ struct ButtonsTab: View {
 
 private struct SlotEditor: View {
     @Binding var action: ButtonAction
+    var showPicker = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Picker("動作", selection: Binding(get: { ActionKind(action) }, set: { action = $0.empty })) {
-                ForEach(ActionKind.allCases) { Text($0.label).tag($0) }
+            if showPicker {
+                Picker("動作", selection: Binding(get: { ActionKind(action) }, set: { action = $0.empty })) {
+                    ForEach(ActionKind.allCases) { Text($0.label).tag($0) }
+                }
             }
             switch action {
             case .keyShortcut(let hk):

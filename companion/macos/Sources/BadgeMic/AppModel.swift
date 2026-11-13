@@ -382,6 +382,13 @@ final class AppModel: ObservableObject {
         send(.setDisplay(diff))
     }
 
+    /// Sets only `off_key` on the device (the long press it names turns the badge screen off locally).
+    func setOffKey(_ key: OffKey) {
+        guard ready else { addLog("名牌未連線:無法設定長按關螢幕"); return }
+        displayDraft.offKey = key
+        send(.setDisplay(DisplaySettings(offKey: key)))
+    }
+
     func setDisplayMode(_ mode: DisplayMode) {
         displayDraft.mode = mode
         applyDisplayDraft()
