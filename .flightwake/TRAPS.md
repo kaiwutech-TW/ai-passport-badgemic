@@ -8,6 +8,22 @@
 # 坑 Registry
 
 ---
+name: parroting-own-mic-setting
+type: gotcha
+status: active
+confidence: confirmed  # 改學舌鳥自身麥克風設定前後一敗一成;同時段 ffmpeg 證實聲音已進驅動(2026-11-13)
+tags: [macos, dictation, parroting, virtual-mic, companion]
+discovered: 2026-11-13
+paths: ["companion/macos/Sources/BadgeMic/DictationTab.swift"]
+---
+
+**症狀**:BadgeMic 輸出設為 BadgeMic Microphone、系統設定輸入也選它,按住說話學舌鳥卻收不到;改回 MiRemoteV 就正常。
+**根因**:學舌鳥(Parroting)有自己的麥克風設定(`~/Library/Application Support/com.parroting.mac/settings_store.json` 的
+`settings.selected_microphone`),不跟系統預設輸入。它還停在舊的 MiRemoteV 2ch。
+**解法**:在學舌鳥自己的設定裡把麥克風改成 BadgeMic Microphone。其他辨識工具(豆包等)也要各自檢查是否有獨立的麥克風選項。
+**佐證**:record 261113-badge-mic-bringup 關鍵發現 1。
+
+---
 name: adhoc-sign-resets-accessibility
 type: gotcha
 status: active
