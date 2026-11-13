@@ -2,13 +2,17 @@
 //
 // ACTIVE -> DIM after dim_s idle, -> OFF after off_s idle (BLE link stays up),
 // -> deep sleep after sleep_min idle (never before off_s). always_on pins ACTIVE
-// and leaves by itself below 15 % battery. Contract: badge-mic-protocol.md.
+// and leaves by itself below 15 % battery. A long press of off_key turns the screen
+// off at once (also in always_on) until the next activity. Contract: badge-mic-protocol.md.
 #pragma once
 
 #include <stdbool.h>
 #include <stdint.h>
 
 #define BM_LOW_BATTERY_PCT 15
+
+// Which long press turns the screen off locally (that gesture is then not reported).
+typedef enum { BM_OFF_KEY_NONE = 0, BM_OFF_KEY_UP_LONG = 1, BM_OFF_KEY_DOWN_LONG = 2 } bm_off_key_t;
 
 typedef struct {
     bool always_on;
@@ -17,6 +21,7 @@ typedef struct {
     uint16_t sleep_min;       // 0 (never) or 5..240
     uint8_t brightness;       // 10..100
     uint8_t dim_brightness;   // 5..brightness
+    uint8_t off_key;          // bm_off_key_t; appended last: older NVS blobs stop before it
 } bm_display_cfg_t;
 
 enum {
@@ -26,6 +31,7 @@ enum {
     BM_PATCH_SLEEP_MIN = 1u << 3,
     BM_PATCH_BRIGHTNESS = 1u << 4,
     BM_PATCH_DIM_BRIGHTNESS = 1u << 5,
+    BM_PATCH_OFF_KEY = 1u << 6,
 };
 
 // Optional fields of set_display; only fields whose mask bit is set are used.
@@ -33,6 +39,7 @@ typedef struct {
     uint32_t mask;
     bool always_on;
     int64_t dim_s, off_s, sleep_min, brightness, dim_brightness;
+    uint8_t off_key;
 } bm_display_patch_t;
 
 void bm_display_cfg_default(bm_display_cfg_t *cfg);
@@ -49,6 +56,7 @@ typedef struct {
     bm_display_cfg_t cfg;
     bm_stage_t stage;
     uint32_t last_activity_ms;
+    bool manual_off;          // off_key pressed: stay OFF until the next activity
 } bm_power_t;
 
 typedef struct {
@@ -65,6 +73,11 @@ bm_stage_t bm_power_activity(bm_power_t *p, uint32_t now_ms);
 bool bm_power_set_cfg(bm_power_t *p, const bm_display_cfg_t *cfg, int battery_pct, uint32_t now_ms);
 // busy (PTT turn, upload) counts as activity. battery_pct -1 = unknown.
 bm_power_tick_t bm_power_tick(bm_power_t *p, uint32_t now_ms, int battery_pct, bool busy);
+// off_key long press: screen OFF now, kept OFF (even in always_on) until activity.
+// The idle clock is not reset, so deep sleep still follows sleep_min.
+void bm_power_force_off(bm_power_t *p);
+// True when this UP/DOWN gesture is the configured screen-off key.
+bool bm_power_is_off_key(const bm_display_cfg_t *cfg, bool up, bool long_press);
 // Backlight percent for the current stage.
 uint8_t bm_power_backlight(const bm_power_t *p);
 // The first UP/DOWN press while the screen is OFF only wakes (not reported).

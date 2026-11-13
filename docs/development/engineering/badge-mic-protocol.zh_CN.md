@@ -60,7 +60,8 @@ Shinku-Chen 以 MIT 许可发布的 Pocket Intercom 协议（`Shinku-Chen/ai-pas
  "caps":["opus","put","display"],
  "page":{"w":240,"h":320,"fmt":"rgb565le","count":2},
  "battery":87,
- "display":{"mode":"auto","dim_s":30,"off_s":120,"sleep_min":30,"brightness":80,"dim_brightness":20}}
+ "display":{"mode":"auto","dim_s":30,"off_s":120,"sleep_min":30,"brightness":80,"dim_brightness":20,
+            "off_key":"none"}}
 ```
 
 Mac 看到设备 hello 后以 `CONTROL` 发送：
@@ -112,7 +113,7 @@ Mac 可在快捷键已按住且虚拟麦克风开始接收后回复 `{"cmd":"ptt
 
 ```json
 {"cmd":"set_display","mode":"auto","dim_s":30,"off_s":120,"sleep_min":30,
- "brightness":80,"dim_brightness":20}
+ "brightness":80,"dim_brightness":20,"off_key":"none"}
 ```
 
 除 `cmd` 外所有字段可选；省略的字段保持当前值。
@@ -125,10 +126,15 @@ Mac 可在快捷键已按住且虚拟麦克风开始接收后回复 `{"cmd":"ptt
 | `sleep_min` | 30 | 0（永不）或 5–240 | 闲置多少分钟后深睡（链路断开；按键会重启） |
 | `brightness` | 80 | 10–100 | 正常背光百分比 |
 | `dim_brightness` | 20 | 5–`brightness` | 调暗时背光百分比 |
+| `off_key` | `none` | `none`、`up_long`、`down_long` | 长按（≥ 600 ms）该键立即熄屏，由设备本地处理（不连 Mac 也有效）；该手势不再以 `key` 事件上报 |
 
 超出范围的值会被夹到范围内。设备持久保存设置，在 `hello` 中以同名字段的
 `"display":{...}` 附带，并在每次变化时上报 `{"ev":"display", ...同样字段...}`。`always_on`
 模式下电量低于 15 % 时设备自行退出该模式并上报。
+
+按下 `off_key` 后屏幕保持熄灭（`always_on` 下也一样），直到下一次按键（如上所述只点亮屏幕）
+或开始按住说话 / 页面上传。深睡计时仍从最后一次活动起算。`off_key` 值无法识别时整条
+`set_display` 以 `bad_args` 失败。
 
 ## 名牌页面上传
 

@@ -68,7 +68,8 @@ Device, as an `EVENT` after subscription:
  "caps":["opus","put","display"],
  "page":{"w":240,"h":320,"fmt":"rgb565le","count":2},
  "battery":87,
- "display":{"mode":"auto","dim_s":30,"off_s":120,"sleep_min":30,"brightness":80,"dim_brightness":20}}
+ "display":{"mode":"auto","dim_s":30,"off_s":120,"sleep_min":30,"brightness":80,"dim_brightness":20,
+            "off_key":"none"}}
 ```
 
 Mac, as a `CONTROL` once it has seen the device hello:
@@ -132,7 +133,7 @@ the screen is off and wakes it.
 
 ```json
 {"cmd":"set_display","mode":"auto","dim_s":30,"off_s":120,"sleep_min":30,
- "brightness":80,"dim_brightness":20}
+ "brightness":80,"dim_brightness":20,"off_key":"none"}
 ```
 
 Every field except `cmd` is optional; omitted fields keep their current value.
@@ -145,11 +146,17 @@ Every field except `cmd` is optional; omitted fields keep their current value.
 | `sleep_min` | 30 | 0 (never) or 5–240 | idle minutes before deep sleep (link drops; a key press reboots) |
 | `brightness` | 80 | 10–100 | normal backlight percent |
 | `dim_brightness` | 20 | 5–`brightness` | dimmed backlight percent |
+| `off_key` | `none` | `none`, `up_long`, `down_long` | long press (≥ 600 ms) of that key turns the screen off at once, handled on the device (works without the Mac); that gesture is then not sent as a `key` event |
 
 Out-of-range values are clamped. The device persists the settings, includes them
 in `hello` as `"display":{...}` with the same field names, and reports every change
 as `{"ev":"display", ...same fields...}`. In `always_on` the device leaves that
 mode by itself when the battery drops below 15 % and reports the change.
+
+After an `off_key` press the screen stays off, also in `always_on`, until the next
+key press (which only wakes the screen, as above) or a PTT turn / page upload. The
+deep-sleep timer keeps counting from the last activity. An unknown `off_key` value
+makes the whole `set_display` fail with `bad_args`.
 
 ## Badge page upload
 

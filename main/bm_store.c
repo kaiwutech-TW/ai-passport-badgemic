@@ -1,6 +1,8 @@
 // main/bm_store.c - see bm_store.h.
 #include "bm_store.h"
 
+#include <stddef.h>
+
 #include <string.h>
 
 #include "esp_log.h"
@@ -149,8 +151,12 @@ void bm_store_load_display(bm_display_cfg_t *cfg)
     nvs_handle_t h;
     if (nvs_open(NS, NVS_READONLY, &h) != ESP_OK) return;
     bm_display_cfg_t stored;
+    bm_display_cfg_default(&stored);
     size_t len = sizeof(stored);
-    if (nvs_get_blob(h, "disp", &stored, &len) == ESP_OK && len == sizeof(stored)) {
+    // Blobs written before off_key existed end right before it: keep them, off_key = none.
+    if (nvs_get_blob(h, "disp", &stored, &len) == ESP_OK &&
+        (len == sizeof(stored) || len == offsetof(bm_display_cfg_t, off_key))) {
+        if (len != sizeof(stored)) stored.off_key = BM_OFF_KEY_NONE;
         *cfg = stored;
         bm_display_cfg_clamp(cfg);
     }

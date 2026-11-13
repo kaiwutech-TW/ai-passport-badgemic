@@ -133,12 +133,70 @@ static void test_always_on(void)
     assert(!refused && p.cfg.always_on);
 }
 
+static void test_off_key(void)
+{
+    bm_display_cfg_t cfg;
+    bm_display_cfg_default(&cfg);
+    assert(cfg.off_key == BM_OFF_KEY_NONE);
+    assert(!bm_power_is_off_key(&cfg, true, true));
+    cfg.off_key = BM_OFF_KEY_UP_LONG;
+    assert(bm_power_is_off_key(&cfg, true, true));
+    assert(!bm_power_is_off_key(&cfg, true, false));    // click is still a normal key
+    assert(!bm_power_is_off_key(&cfg, false, true));
+    cfg.off_key = BM_OFF_KEY_DOWN_LONG;
+    assert(bm_power_is_off_key(&cfg, false, true) && !bm_power_is_off_key(&cfg, true, true));
+    cfg.off_key = 9;
+    bm_display_cfg_clamp(&cfg);
+    assert(cfg.off_key == BM_OFF_KEY_NONE);
+
+    // always_on: forced off stays off until activity, then always_on again
+    bm_display_cfg_default(&cfg);
+    cfg.always_on = true;
+    cfg.sleep_min = 0;
+    bm_power_t p;
+    bm_power_init(&p, &cfg, 0);
+    bm_power_force_off(&p);
+    assert(p.stage == BM_STAGE_OFF && bm_power_backlight(&p) == 0);
+    bm_power_tick_t t = bm_power_tick(&p, S(5), 80, false);
+    assert(p.stage == BM_STAGE_OFF && !t.stage_changed);
+    t = bm_power_tick(&p, S(3600), 80, false);
+    assert(p.stage == BM_STAGE_OFF && !t.deep_sleep_due);
+    assert(bm_power_activity(&p, S(3601)) == BM_STAGE_OFF);
+    assert(bm_power_press_only_wakes(BM_STAGE_OFF));
+    t = bm_power_tick(&p, S(3700), 80, false);
+    assert(p.stage == BM_STAGE_ACTIVE && !p.manual_off);
+
+    // auto mode: forced off before dim_s; deep sleep still counts from the last activity
+    bm_display_cfg_default(&cfg);   // dim 30 s, off 120 s, sleep 30 min
+    bm_power_init(&p, &cfg, 0);
+    bm_power_force_off(&p);
+    t = bm_power_tick(&p, S(10), 80, false);
+    assert(p.stage == BM_STAGE_OFF && !t.deep_sleep_due);
+    t = bm_power_tick(&p, S(30 * 60), 80, false);
+    assert(p.stage == BM_STAGE_OFF && t.deep_sleep_due);
+
+    // busy (PTT / upload) wakes it
+    bm_power_init(&p, &cfg, 0);
+    bm_power_force_off(&p);
+    t = bm_power_tick(&p, S(1), 80, true);
+    assert(p.stage == BM_STAGE_ACTIVE && t.stage_changed && !p.manual_off);
+
+    // low battery while forced off in always_on: leaves always_on, stays off
+    bm_display_cfg_default(&cfg);
+    cfg.always_on = true;
+    bm_power_init(&p, &cfg, 0);
+    bm_power_force_off(&p);
+    t = bm_power_tick(&p, S(1), 10, false);
+    assert(t.left_always_on && !p.cfg.always_on && p.stage == BM_STAGE_OFF);
+}
+
 int main(void)
 {
     test_defaults_and_clamp();
     test_stage_transitions();
     test_busy_and_custom_values();
     test_always_on();
-    puts("test_bm_power: 4 tests PASS");
+    test_off_key();
+    puts("test_bm_power: 5 tests PASS");
     return 0;
 }

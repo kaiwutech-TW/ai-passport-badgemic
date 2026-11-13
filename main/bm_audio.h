@@ -23,7 +23,9 @@ typedef void (*bm_audio_frame_cb_t)(const uint8_t *opus, size_t len, uint8_t lev
 typedef struct {
     uint32_t frames_encoded;
     uint32_t read_errors;
-    uint32_t encode_us_max;
+    uint32_t encode_us_max;  // per turn (reset by bm_audio_begin)
+    uint32_t encode_us_first; // first frame of the turn (cold flash cache)
+    uint64_t encode_us_sum;   // per turn; average = sum / frames_encoded
     uint32_t wake_ms;        // codec wake + format time of the last capture start
     uint32_t stack_free;     // task stack high-water mark (bytes still free)
 } bm_audio_stats_t;

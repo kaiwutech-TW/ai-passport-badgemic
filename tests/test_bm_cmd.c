@@ -71,10 +71,19 @@ static void test_set_display(void)
     assert(!cfg.always_on && cfg.dim_s == 10 && cfg.off_s == 60 && cfg.sleep_min == 0 &&
            cfg.brightness == 90 && cfg.dim_brightness == 15);
 
+    // off_key
+    assert(parse("{\"cmd\":\"set_display\",\"off_key\":\"up_long\"}", &c) && !c.bad_args);
+    assert(c.patch.mask == BM_PATCH_OFF_KEY && c.patch.off_key == BM_OFF_KEY_UP_LONG);
+    bm_display_cfg_apply(&cfg, &c.patch);
+    assert(cfg.off_key == BM_OFF_KEY_UP_LONG && cfg.dim_s == 10);
+    assert(parse("{\"cmd\":\"set_display\",\"off_key\":\"ok_long\"}", &c) && c.bad_args);
+    assert(parse("{\"cmd\":\"set_display\",\"off_key\":1}", &c) && c.bad_args);
+
     // omitted fields keep their value
     assert(parse("{\"cmd\":\"set_display\",\"brightness\":50}", &c));
     bm_display_cfg_apply(&cfg, &c.patch);
-    assert(cfg.dim_s == 10 && cfg.brightness == 50 && cfg.dim_brightness == 15);
+    assert(cfg.dim_s == 10 && cfg.brightness == 50 && cfg.dim_brightness == 15 &&
+           cfg.off_key == BM_OFF_KEY_UP_LONG);
 }
 
 static void test_events(void)
@@ -87,15 +96,16 @@ static void test_events(void)
     assert(strstr(b, "\"ev\":\"hello\",\"proto\":1,\"fw\":\"0.1.0\",\"model\":\"Passport-3A2B\""));
     assert(strstr(b, "\"page\":{\"w\":240,\"h\":320,\"fmt\":\"rgb565le\",\"count\":2}"));
     assert(strstr(b, "\"battery\":87,\"display\":{\"mode\":\"auto\",\"dim_s\":30,\"off_s\":120,"
-                     "\"sleep_min\":30,\"brightness\":80,\"dim_brightness\":20}}"));
+                     "\"sleep_min\":30,\"brightness\":80,\"dim_brightness\":20,\"off_key\":\"none\"}}"));
     assert(bm_ev_hello(b, 20, "0.1.0", "x", 2, 1, &cfg) == 0);   // too small
 
     n = bm_ev_display(b, sizeof(b), &cfg);
     assert(n && strcmp(b, "{\"ev\":\"display\",\"mode\":\"auto\",\"dim_s\":30,\"off_s\":120,"
-                          "\"sleep_min\":30,\"brightness\":80,\"dim_brightness\":20}") == 0);
+                          "\"sleep_min\":30,\"brightness\":80,\"dim_brightness\":20,\"off_key\":\"none\"}") == 0);
     cfg.always_on = true;
+    cfg.off_key = BM_OFF_KEY_DOWN_LONG;
     bm_ev_display(b, sizeof(b), &cfg);
-    assert(strstr(b, "\"mode\":\"always_on\""));
+    assert(strstr(b, "\"mode\":\"always_on\"") && strstr(b, "\"off_key\":\"down_long\""));
 
     bm_ev_ptt_start(b, sizeof(b), 3);
     assert(strcmp(b, "{\"ev\":\"ptt_start\",\"id\":3}") == 0);

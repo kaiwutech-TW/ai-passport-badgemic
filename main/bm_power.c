@@ -13,6 +13,7 @@ void bm_display_cfg_default(bm_display_cfg_t *cfg)
     cfg->sleep_min = 30;
     cfg->brightness = 80;
     cfg->dim_brightness = 20;
+    cfg->off_key = BM_OFF_KEY_NONE;
 }
 
 void bm_display_cfg_clamp(bm_display_cfg_t *cfg)
@@ -22,6 +23,7 @@ void bm_display_cfg_clamp(bm_display_cfg_t *cfg)
     if (cfg->sleep_min != 0) cfg->sleep_min = (uint16_t)clamp64(cfg->sleep_min, 5, 240);
     cfg->brightness = (uint8_t)clamp64(cfg->brightness, 10, 100);
     cfg->dim_brightness = (uint8_t)clamp64(cfg->dim_brightness, 5, cfg->brightness);
+    if (cfg->off_key > BM_OFF_KEY_DOWN_LONG) cfg->off_key = BM_OFF_KEY_NONE;
 }
 
 void bm_display_cfg_apply(bm_display_cfg_t *cfg, const bm_display_patch_t *p)
@@ -35,6 +37,7 @@ void bm_display_cfg_apply(bm_display_cfg_t *cfg, const bm_display_patch_t *p)
     }
     if (p->mask & BM_PATCH_BRIGHTNESS) cfg->brightness = (uint8_t)clamp64(p->brightness, 10, 100);
     if (p->mask & BM_PATCH_DIM_BRIGHTNESS) cfg->dim_brightness = (uint8_t)clamp64(p->dim_brightness, 0, 100);
+    if (p->mask & BM_PATCH_OFF_KEY) cfg->off_key = p->off_key;
     bm_display_cfg_clamp(cfg);
 }
 
@@ -42,7 +45,7 @@ bool bm_display_cfg_equal(const bm_display_cfg_t *a, const bm_display_cfg_t *b)
 {
     return a->always_on == b->always_on && a->dim_s == b->dim_s && a->off_s == b->off_s &&
            a->sleep_min == b->sleep_min && a->brightness == b->brightness &&
-           a->dim_brightness == b->dim_brightness;
+           a->dim_brightness == b->dim_brightness && a->off_key == b->off_key;
 }
 
 void bm_power_init(bm_power_t *p, const bm_display_cfg_t *cfg, uint32_t now_ms)
@@ -51,6 +54,7 @@ void bm_power_init(bm_power_t *p, const bm_display_cfg_t *cfg, uint32_t now_ms)
     bm_display_cfg_clamp(&p->cfg);
     p->stage = BM_STAGE_ACTIVE;
     p->last_activity_ms = now_ms;
+    p->manual_off = false;
 }
 
 bm_stage_t bm_power_activity(bm_power_t *p, uint32_t now_ms)
@@ -58,6 +62,7 @@ bm_stage_t bm_power_activity(bm_power_t *p, uint32_t now_ms)
     bm_stage_t before = p->stage;
     p->stage = BM_STAGE_ACTIVE;
     p->last_activity_ms = now_ms;
+    p->manual_off = false;
     return before;
 }
 
@@ -79,6 +84,21 @@ bm_power_tick_t bm_power_tick(bm_power_t *p, uint32_t now_ms, int battery_pct, b
     bm_power_tick_t out = {0};
     if (busy) {
         out.stage_changed = bm_power_activity(p, now_ms) != BM_STAGE_ACTIVE;
+        return out;
+    }
+    if (p->manual_off) {
+        out.stage_changed = p->stage != BM_STAGE_OFF;
+        p->stage = BM_STAGE_OFF;
+        if (p->cfg.always_on && battery_pct >= 0 && battery_pct < BM_LOW_BATTERY_PCT) {
+            p->cfg.always_on = false;
+            out.left_always_on = true;
+        }
+        if (p->cfg.sleep_min != 0) {
+            uint32_t sleep_ms = (uint32_t)p->cfg.sleep_min * 60000u;
+            uint32_t off_ms = (uint32_t)p->cfg.off_s * 1000u;
+            if (sleep_ms < off_ms) sleep_ms = off_ms;
+            out.deep_sleep_due = now_ms - p->last_activity_ms >= sleep_ms;
+        }
         return out;
     }
     if (p->cfg.always_on) {
@@ -105,6 +125,18 @@ bm_power_tick_t bm_power_tick(bm_power_t *p, uint32_t now_ms, int battery_pct, b
         out.deep_sleep_due = idle >= sleep_ms;
     }
     return out;
+}
+
+void bm_power_force_off(bm_power_t *p)
+{
+    p->stage = BM_STAGE_OFF;
+    p->manual_off = true;
+}
+
+bool bm_power_is_off_key(const bm_display_cfg_t *cfg, bool up, bool long_press)
+{
+    if (!long_press) return false;
+    return (up && cfg->off_key == BM_OFF_KEY_UP_LONG) || (!up && cfg->off_key == BM_OFF_KEY_DOWN_LONG);
 }
 
 uint8_t bm_power_backlight(const bm_power_t *p)

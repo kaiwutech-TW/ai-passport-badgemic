@@ -15,10 +15,13 @@
 
 static const char *TAG = "bm_audio";
 
-// The SILK encoder keeps large locals on the stack; the reference firmware runs it on
-// 24 KB. The stack is static: after NimBLE and LVGL the heap has no 24 KB block left.
-#define BM_AUDIO_TASK_STACK 24576U
-#define BM_AUDIO_TASK_PRIO 4U
+// The SILK encoder keeps large locals on the stack. 24 KB (the reference firmware's
+// size) left only 472 B free on the device (2026-11-13), so 32 KB. The stack is
+// static: after NimBLE and LVGL the heap has no block this large left.
+#define BM_AUDIO_TASK_STACK 32768U
+// Above the app task (LVGL page/level redraws) and the BLE TX task (both 5): the I2S
+// DMA ring holds only ~90 ms (6 x 240 frames), so a preempted encode loses audio.
+#define BM_AUDIO_TASK_PRIO 6U
 #define BM_AUDIO_IDLE_POLL_MS 10U
 #define BM_AUDIO_END_TIMEOUT_MS 400U
 #define BM_AUDIO_READ_SAMPLES 480U       // 30 ms per read
@@ -69,7 +72,9 @@ static void encode_and_emit(bool pad)
     } else {
         s_a.last_toc = s_a.opus_buf[0];
     }
+    if (s_a.stats.frames_encoded == 0) s_a.stats.encode_us_first = dt;
     s_a.stats.frames_encoded++;
+    s_a.stats.encode_us_sum += dt;
     if (dt > s_a.stats.encode_us_max) s_a.stats.encode_us_max = dt;
     int level = peak * 100 / 16384;
     if (s_a.cb) s_a.cb(s_a.opus_buf, (size_t)n, (uint8_t)(level > 100 ? 100 : level), s_a.ctx);
@@ -169,6 +174,9 @@ esp_err_t bm_audio_begin(void)
     for (int i = 0; i < 40 && s_a.collecting && !s_a.turn_requested; i++) vTaskDelay(pdMS_TO_TICKS(10));
     while (xSemaphoreTake(s_a.done_sem, 0) == pdTRUE) {}   // drop stale completion
     s_a.stats.frames_encoded = 0;
+    s_a.stats.encode_us_max = 0;
+    s_a.stats.encode_us_first = 0;
+    s_a.stats.encode_us_sum = 0;
     s_a.flush_tail = false;
     s_a.turn_requested = true;
     return ESP_OK;

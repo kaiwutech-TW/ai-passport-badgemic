@@ -132,7 +132,7 @@ bool bm_cmd_parse(const uint8_t *json, size_t len, bm_cmd_t *out)
     if (c.p >= c.end || *c.p != '{') return false;
     c.p++;
 
-    val_t cmd = {0}, proto = {0}, id = {0}, page = {0}, size = {0}, crc = {0}, mode = {0};
+    val_t cmd = {0}, proto = {0}, id = {0}, page = {0}, size = {0}, crc = {0}, mode = {0}, off_key = {0};
     val_t disp[5] = {{0}};  // dim_s, off_s, sleep_min, brightness, dim_brightness
     static const char *const disp_keys[5] = {"dim_s", "off_s", "sleep_min", "brightness", "dim_brightness"};
     bool closed = false;
@@ -155,6 +155,7 @@ bool bm_cmd_parse(const uint8_t *json, size_t len, bm_cmd_t *out)
         else if (!strcmp(key, "size")) size = v;
         else if (!strcmp(key, "crc32")) crc = v;
         else if (!strcmp(key, "mode")) mode = v;
+        else if (!strcmp(key, "off_key")) off_key = v;
         else {
             for (int k = 0; k < 5; k++) if (!strcmp(key, disp_keys[k])) disp[k] = v;
         }
@@ -186,6 +187,13 @@ bool bm_cmd_parse(const uint8_t *json, size_t len, bm_cmd_t *out)
             if (mode.type == V_STR && !strcmp(mode.str, "auto")) { p->mask |= BM_PATCH_MODE; p->always_on = false; }
             else if (mode.type == V_STR && !strcmp(mode.str, "always_on")) { p->mask |= BM_PATCH_MODE; p->always_on = true; }
             else out->bad_args = true;
+        }
+        if (off_key.type != V_NONE) {
+            static const char *const names[3] = {"none", "up_long", "down_long"};
+            int k = -1;
+            for (int i = 0; off_key.type == V_STR && i < 3; i++) if (!strcmp(off_key.str, names[i])) k = i;
+            if (k < 0) out->bad_args = true;
+            else { p->mask |= BM_PATCH_OFF_KEY; p->off_key = (uint8_t)k; }
         }
         static const uint32_t bits[5] = {BM_PATCH_DIM_S, BM_PATCH_OFF_S, BM_PATCH_SLEEP_MIN,
                                          BM_PATCH_BRIGHTNESS, BM_PATCH_DIM_BRIGHTNESS};
@@ -221,10 +229,11 @@ static size_t finish(int n, size_t cap)
 
 static size_t cfg_fields(char *buf, size_t cap, const bm_display_cfg_t *c)
 {
+    static const char *const off_keys[3] = {"none", "up_long", "down_long"};
     int n = snprintf(buf, cap, "\"mode\":\"%s\",\"dim_s\":%u,\"off_s\":%u,\"sleep_min\":%u,"
-                               "\"brightness\":%u,\"dim_brightness\":%u",
+                               "\"brightness\":%u,\"dim_brightness\":%u,\"off_key\":\"%s\"",
                      c->always_on ? "always_on" : "auto", c->dim_s, c->off_s, c->sleep_min,
-                     c->brightness, c->dim_brightness);
+                     c->brightness, c->dim_brightness, off_keys[c->off_key <= 2 ? c->off_key : 0]);
     return finish(n, cap);
 }
 

@@ -241,9 +241,12 @@ static void end_turn(bm_ptt_reason_t reason)
     uint32_t dropped = s_ptt.dropped + overwritten;
     bm_audio_stats_t st;
     bm_audio_get_stats(&st);
-    ESP_LOGI(TAG, "turn %u end: frames=%u dropped=%u reason=%d enc_max=%uus stack_free=%u tx_drops=%u",
+    unsigned enc_avg = st.frames_encoded ? (unsigned)(st.encode_us_sum / st.frames_encoded) : 0;
+    ESP_LOGI(TAG, "turn %u end: frames=%u dropped=%u reason=%d enc_first=%uus enc_avg=%uus enc_max=%uus "
+             "read_err=%u stack_free=%u tx_drops=%u",
              (unsigned)s_ptt.id, (unsigned)s_ptt.frames, (unsigned)dropped, (int)reason,
-             (unsigned)st.encode_us_max, (unsigned)st.stack_free, (unsigned)bm_link_tx_drop_count());
+             (unsigned)st.encode_us_first, enc_avg, (unsigned)st.encode_us_max, (unsigned)st.read_errors,
+             (unsigned)st.stack_free, (unsigned)bm_link_tx_drop_count());
     if (can_send) {
         char b[BM_JSON_PAYLOAD_MAX];
         const char *r = reason == BM_PTT_REASON_TIMEOUT ? "timeout" : NULL;
@@ -322,6 +325,9 @@ static void handle_input(bm_in_ev_t e)
     case BM_IN_LONG:
         if (s_wake_only[e.key]) {
             s_wake_only[e.key] = false;        // this press only woke the screen
+        } else if (e.key != BM_K_OK && bm_power_is_off_key(&s_power.cfg, e.key == BM_K_UP, e.kind == BM_IN_LONG)) {
+            bm_power_force_off(&s_power);      // local: works without the Mac, not reported
+            apply_stage();
         } else if (usable() && e.key != BM_K_OK) {
             char b[BM_JSON_PAYLOAD_MAX];
             send_event(b, bm_ev_key(b, sizeof(b), e.key == BM_K_UP, e.kind == BM_IN_LONG));
